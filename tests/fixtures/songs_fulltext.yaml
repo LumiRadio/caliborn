@@ -1,0 +1,8 @@
+- title: "The Great Testing Song"
+  artist: "The Testers"
+  album: "Testing Hits"
+  song_id: "abcd1234"
+- title: "A Totally Unrelated Song"
+  artist: "Totally Unrelated Artists"
+  album: "Totally Unrelated Albums"
+  song_id: "efgh5678"

@@ -1,0 +1,57 @@
+[workspace]
+members = [".", "migration"]
+
+[package]
+name = "caliborn"
+description = "API server for lumiRadio"
+version = "0.1.0"
+authors = ["cozygalvinism"]
+edition = "2024"
+
+[dependencies]
+axum = { version = "0.8.3", features = ["macros", "ws"] }
+chrono = "0.4.40"
+figment = { version = "0.10.19", features = ["env"] }
+hmac = "0.12.1"
+jwt = "0.16.0"
+oauth2 = "5.0.0"
+reqwest = "0.12.15"
+serde = { version = "1.0.219", features = ["derive"] }
+sha2 = "0.10.8"
+thiserror = "2.0.12"
+tokio = { version = "1.44.2", features = ["full"] }
+url = "2.5.4"
+serenity = "0.12.4"
+utoipa = { version = "5.3.1", features = ["axum_extras", "chrono"] }
+axum-macros = "0.5.0"
+utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
+sea-orm = { version = "1.1", features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+    "with-chrono",
+    "with-rust_decimal",
+] }
+migration = { path = "./migration" }
+sea-query = "0.32"
+async-trait = "0.1.88"
+rand = "0.9.1"
+prefixed-api-key = { version = "0.3.0", features = ["all"] }
+tracing = "0.1.41"
+hex = "0.4.3"
+subtle = "2.6.1"
+anyhow = { version = "1.0.98", features = ["backtrace"] }
+tracing-unwrap = "1.0.1"
+serde_json = "1.0.140"
+serde_yaml = "0.9.34-deprecated"
+tower = "0.5.2"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+rust-stemmers = "1.2.0"
+stopwords = "0.1.1"
+
+[dev-dependencies]
+mockall = "0.13.1"
+rstest = "0.25.0"
+sea-orm = { version = "1.1", features = ["mock"] }
+testcontainers = "0.24.0"
+testcontainers-modules = { version = "0.12.1", features = ["postgres"] }
