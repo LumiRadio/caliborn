@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "migration"]
+members = [".", "migration", "shared_constants"]
 
 [package]
 name = "caliborn"
@@ -48,6 +48,7 @@ tower = "0.5.2"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 rust-stemmers = "1.2.0"
 stopwords = "0.1.1"
+shared_constants = { path = "./shared_constants" }
 
 [dev-dependencies]
 mockall = "0.13.1"

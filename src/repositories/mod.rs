@@ -18,6 +18,7 @@ use crate::repositories::{
 pub mod cans;
 pub mod cooldowns;
 pub mod favourite_songs;
+pub mod permissions;
 pub mod server_channel_config;
 pub mod server_config;
 pub mod song_history;

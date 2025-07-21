@@ -3,19 +3,25 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "connected_youtube_accounts")]
+#[sea_orm(table_name = "user_permissions")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: i64,
-    #[sea_orm(column_type = "Text")]
-    pub youtube_channel_id: String,
-    #[sea_orm(column_type = "Text")]
-    pub youtube_channel_name: String,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub permission: String,
+    pub granted: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::permissions::Entity",
+        from = "Column::Permission",
+        to = "super::permissions::Column::Name",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Permissions,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::UserId",
@@ -24,6 +30,12 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Users,
+}
+
+impl Related<super::permissions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Permissions.def()
+    }
 }
 
 impl Related<super::users::Entity> for Entity {
