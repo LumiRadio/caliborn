@@ -6,6 +6,7 @@ use sea_orm::{ConnectionTrait, DatabaseConnection};
 use crate::repositories::{
     cans::{CanRepository, SeaOrmCanRepository},
     favourite_songs::{FavouriteSongRepository, SeaOrmFavouriteSongRepository},
+    permissions::{PermissionRepository, SeaOrmPermissionRepository},
     server_channel_config::{SeaOrmServerChannelConfigRepository, ServerChannelConfigRepository},
     server_config::{SeaOrmServerConfigRepository, ServerConfigRepository},
     song_history::{SeaOrmSongHistoryRepository, SongHistoryRepository},
@@ -18,6 +19,8 @@ use crate::repositories::{
 pub mod cans;
 pub mod cooldowns;
 pub mod favourite_songs;
+pub mod permissions;
+pub mod roles;
 pub mod server_channel_config;
 pub mod server_config;
 pub mod song_history;
@@ -202,6 +205,13 @@ pub trait RepositoryFactory: Send + Sync + 'static {
     ///
     /// A boxed trait object implementing the `CooldownRepository` trait.
     fn cooldown_repository(&self) -> Box<dyn CooldownRepository>;
+
+    /// Creates a new instance of a `PermissionRepository`.
+    ///
+    /// # Returns
+    ///
+    /// A boxed trait object implementing the `PermissionRepository` trait.
+    fn permission_repository(&self) -> Box<dyn PermissionRepository>;
 }
 
 /// A SeaORM implementation of the `RepositoryFactory` trait.
@@ -257,11 +267,6 @@ impl RepositoryFactory for SeaOrmRepositoryFactory {
         Box::new(SeaOrmTagRepository::new(&self.db))
     }
 
-    // Currently not in use
-    // fn token_storage_repository(&self) -> Box<dyn TokenStorageRepository> {
-    //     Box::new(SeaOrmTokenStorageRepository::new(&self.db))
-    // }
-
     fn user_repository(&self) -> Box<dyn UserRepository> {
         Box::new(SeaOrmUserRepository::new(&self.db))
     }
@@ -272,5 +277,9 @@ impl RepositoryFactory for SeaOrmRepositoryFactory {
 
     fn cooldown_repository(&self) -> Box<dyn CooldownRepository> {
         Box::new(SeaOrmCooldownRepository::new(&self.db))
+    }
+
+    fn permission_repository(&self) -> Box<dyn PermissionRepository> {
+        Box::new(SeaOrmPermissionRepository::new(&self.db))
     }
 }

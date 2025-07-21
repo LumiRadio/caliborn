@@ -9,6 +9,14 @@ mod m20250423_082923_edit_users_remove_grist;
 mod m20250424_162423_edit_api_keys_add_hash;
 mod m20250429_074227_create_cooldowns;
 mod m20250702_192327_create_songs_fulltext;
+mod m20250715_104753_create_roles;
+mod m20250715_104843_create_permissions;
+mod m20250715_105012_create_role_permissions;
+mod m20250715_105343_create_user_roles;
+mod m20250715_105431_create_user_permissions;
+mod m20250715_105638_seed_roles;
+mod m20250715_111004_seed_permissions;
+mod m20250715_164729_seed_role_permissions;
 
 pub struct Migrator;
 
@@ -25,6 +33,14 @@ impl MigratorTrait for Migrator {
             Box::new(m20250424_162423_edit_api_keys_add_hash::Migration),
             Box::new(m20250429_074227_create_cooldowns::Migration),
             Box::new(m20250702_192327_create_songs_fulltext::Migration),
+            Box::new(m20250715_104753_create_roles::Migration),
+            Box::new(m20250715_104843_create_permissions::Migration),
+            Box::new(m20250715_105012_create_role_permissions::Migration),
+            Box::new(m20250715_105343_create_user_roles::Migration),
+            Box::new(m20250715_105431_create_user_permissions::Migration),
+            Box::new(m20250715_105638_seed_roles::Migration),
+            Box::new(m20250715_111004_seed_permissions::Migration),
+            Box::new(m20250715_164729_seed_role_permissions::Migration),
         ]
     }
 }
