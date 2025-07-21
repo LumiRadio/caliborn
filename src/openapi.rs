@@ -1,5 +1,6 @@
 use utoipa::{
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme}, Modify, OpenApi
+    Modify, OpenApi,
+    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
 };
 
 struct DiscordAuthAddon;
@@ -32,7 +33,7 @@ impl Modify for UserApiKeyAddon {
                         .scheme(HttpAuthScheme::Bearer)
                         .bearer_format("API Key")
                         .build(),
-                )
+                ),
             );
         }
     }

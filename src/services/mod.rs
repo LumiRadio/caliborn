@@ -23,6 +23,7 @@ pub mod auth;
 pub mod cans;
 pub mod cooldowns;
 pub mod economy;
+pub mod permissions;
 pub mod songs;
 pub mod users;
 
