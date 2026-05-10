@@ -54,11 +54,8 @@ clap = { version = "4.5", features = ["derive"] }
 aes-gcm = "0.10.3"
 walkdir = "2.5"
 notify = "6.1"
-audiotags = { git = "https://github.com/lumiRadio/audiotags", version = "0.5.0" }
-id3 = "1.16"
-ffmpeg-next = { version = "8.0", default-features = false, features = ["codec", "format"] }
+lofty = "0.24"
 m3u = "1.0"
-regex = "1.11"
 futures-util = "0.3"
 
 [dev-dependencies]

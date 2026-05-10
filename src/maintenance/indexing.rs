@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use audiotags::{AudioTagEdit, Id3v2Tag};
 use sea_orm::{
     ActiveValue, ConnectionTrait, EntityTrait, QueryFilter, prelude::*, sea_query::OnConflict,
 };
@@ -11,22 +10,6 @@ use crate::entities;
 use crate::maintenance::{
     MaintenanceError, is_supported_audio, metadata::MusicMetadata, rewrite_music_path,
 };
-
-pub trait WavTag {
-    fn read_from_wav_path(path: impl AsRef<Path>) -> Result<Self, MaintenanceError>
-    where
-        Self: Sized;
-}
-
-impl WavTag for Id3v2Tag {
-    fn read_from_wav_path(path: impl AsRef<Path>) -> Result<Self, MaintenanceError>
-    where
-        Self: Sized,
-    {
-        let id_tag = id3::Tag::read_from_path(path)?;
-        Ok(id_tag.into())
-    }
-}
 
 #[tracing::instrument(skip(db))]
 pub async fn index<C: ConnectionTrait>(
@@ -87,28 +70,7 @@ pub async fn index_file<C: ConnectionTrait>(
         return Ok(());
     }
 
-    let ext = path
-        .extension()
-        .map(|e| e.to_ascii_lowercase())
-        .unwrap_or_default();
-
-    let (title, artist, album) = if ext == "wav" {
-        let tag = Id3v2Tag::read_from_wav_path(path)?;
-        (
-            tag.title().unwrap_or("").to_owned(),
-            tag.artist().unwrap_or("").to_owned(),
-            tag.album().map(|a| a.title).unwrap_or("").to_owned(),
-        )
-    } else {
-        let tag = audiotags::Tag::new().read_from_path(path)?;
-        (
-            tag.title().unwrap_or("").to_owned(),
-            tag.artist().unwrap_or("").to_owned(),
-            tag.album().map(|a| a.title).unwrap_or("").to_owned(),
-        )
-    };
-
-    let meta = MusicMetadata::new(&path)?;
+    let meta = MusicMetadata::new(path)?;
 
     let mut hasher: Sha256 = Digest::new();
     hasher.update(path.canonicalize()?.to_string_lossy().as_bytes());
@@ -116,9 +78,9 @@ pub async fn index_file<C: ConnectionTrait>(
     let hash_str = format!("{:x}", hash);
 
     let rewritten = rewrite_music_path(path, music_path)?;
-    let title = title.replace(char::from(0), "");
-    let artist = artist.replace(char::from(0), "");
-    let album = album.replace(char::from(0), "");
+    let title = meta.title.replace(char::from(0), "");
+    let artist = meta.artist.replace(char::from(0), "");
+    let album = meta.album.replace(char::from(0), "");
     let file_path = rewritten.display().to_string();
 
     info!(

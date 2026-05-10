@@ -1,75 +1,68 @@
 use std::path::Path;
-use std::sync::OnceLock;
 
-use ffmpeg_next::DictionaryRef;
+use lofty::prelude::*;
+use lofty::probe::Probe;
+use lofty::tag::ItemValue;
 
 pub struct MusicMetadata {
+    pub title: String,
+    pub artist: String,
+    pub album: String,
     pub duration: f64,
+    /// Bitrate in bits per second (lofty reports kbps; we scale to match
+    /// the prior ffmpeg-derived shape stored in `songs.bitrate`).
     pub bitrate: i64,
-    pub tags: Tags,
+    pub tags: Vec<(String, String)>,
 }
 
 impl MusicMetadata {
-    pub fn new<P: AsRef<Path>>(path: &P) -> std::io::Result<Self> {
-        let format_ctx = ffmpeg_next::format::input(path)?;
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, lofty::error::LoftyError> {
+        let tagged = Probe::open(path)?.guess_file_type()?.read()?;
+        let props = tagged.properties();
 
-        let file_size = std::fs::metadata(path)?.len();
+        let duration = props.duration().as_secs_f64();
+        let bitrate = props
+            .audio_bitrate()
+            .map(|kbps| i64::from(kbps) * 1000)
+            .unwrap_or(0);
 
-        let duration = if format_ctx.duration() >= 0 {
-            format_ctx.duration() as f64 / ffmpeg_next::ffi::AV_TIME_BASE as f64
-        } else {
-            0_f64
+        let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
+
+        let (title, artist, album) = match tag {
+            Some(t) => (
+                t.title().as_deref().unwrap_or("").to_owned(),
+                t.artist().as_deref().unwrap_or("").to_owned(),
+                t.album().as_deref().unwrap_or("").to_owned(),
+            ),
+            None => (String::new(), String::new(), String::new()),
         };
 
-        let bitrate = if format_ctx.bit_rate() >= 0 {
-            format_ctx.bit_rate()
-        } else if duration > 0_f64 {
-            (file_size * 8) as i64 / duration as i64
-        } else {
-            0_i64
+        let tags = match tag {
+            Some(t) => {
+                let tag_type = t.tag_type();
+                t.items()
+                    .filter_map(|item| {
+                        let ItemValue::Text(value) = item.value() else {
+                            return None;
+                        };
+                        if value.is_empty() {
+                            return None;
+                        }
+                        let key = item.key().map_key(tag_type)?;
+                        Some((key.to_string(), value.clone()))
+                    })
+                    .collect()
+            }
+            None => Vec::new(),
         };
-
-        let tags = format_ctx.metadata().to_tags();
-        tracing::debug!("Tags: {:?}", tags);
 
         Ok(Self {
+            title,
+            artist,
+            album,
             duration,
             bitrate,
             tags,
         })
-    }
-}
-
-pub type Tags = Vec<(String, String)>;
-
-pub trait ToTags {
-    fn to_tags(&self) -> Tags;
-}
-
-fn boring_pattern() -> &'static regex::Regex {
-    static PATTERN: OnceLock<regex::Regex> = OnceLock::new();
-    PATTERN.get_or_init(|| {
-        regex::Regex::new(
-            r"(?i)^((major_brand|minor_version|compatible_brands|creation_time|handler_name|encoder)$|_|com\.)",
-        )
-        .expect("static regex compiles")
-    })
-}
-
-fn tag_is_boring(key: &str) -> bool {
-    boring_pattern().is_match(key)
-}
-
-impl<'a> ToTags for DictionaryRef<'a> {
-    fn to_tags(&self) -> Tags {
-        self.iter()
-            .filter_map(|(k, v)| {
-                if v.is_empty() || tag_is_boring(k) {
-                    None
-                } else {
-                    Some((k.to_string(), v.to_string()))
-                }
-            })
-            .collect()
     }
 }

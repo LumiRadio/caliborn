@@ -15,9 +15,7 @@ pub enum MaintenanceError {
     #[error(transparent)]
     SeaOrm(#[from] sea_orm::DbErr),
     #[error(transparent)]
-    AudioTags(#[from] audiotags::Error),
-    #[error(transparent)]
-    Id3(#[from] id3::Error),
+    Lofty(#[from] lofty::error::LoftyError),
     #[error(transparent)]
     Notify(#[from] notify::Error),
 }

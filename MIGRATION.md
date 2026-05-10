@@ -184,8 +184,8 @@ sends `playlist.reload` to Liquidsoap over the configured socket (adjust
 the source name in `main.rs::playlist_cmd` if your Liquidsoap playlist
 source isn't named `playlist`).
 
-Requires the `ffmpeg` shared libraries on the host (the `ffmpeg-next`
-dependency links against system `libavformat` / `libavcodec`).
+Pure-Rust dependency stack (`lofty`); no system `ffmpeg` libraries
+required at build or runtime.
 
 ### Encryption-key rotation
 
