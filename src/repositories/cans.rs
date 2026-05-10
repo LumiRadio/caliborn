@@ -92,7 +92,7 @@ impl CanRepositoryExt for BaseRepository<entities::cans::Entity> {
     async fn count(&self) -> Result<u64, RepositoryError> {
         #[derive(FromQueryResult)]
         struct CountResult {
-            count: u64,
+            count: i64,
         }
 
         entities::cans::Entity::find()
@@ -101,7 +101,7 @@ impl CanRepositoryExt for BaseRepository<entities::cans::Entity> {
             .into_model::<CountResult>()
             .one(&self.db)
             .await
-            .map(|count| count.map(|c| c.count).unwrap_or(0))
+            .map(|count| count.map(|c| c.count.max(0) as u64).unwrap_or(0))
             .map_err(RepositoryError::from)
     }
 }

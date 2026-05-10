@@ -24,7 +24,8 @@ use crate::{
     },
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository, RepositoryError, users::UserRepositoryExt,
+        AlwaysCloneableConnection, BaseRepository, RepositoryError,
+        users::{CreateUserDto, UserRepositoryExt},
     },
     services::{
         discord_linked_roles::{LinkedRolesService, UserMetadata},
@@ -196,6 +197,14 @@ impl AuthService {
             serenity::http::HttpBuilder::new(format!("Bearer {}", token.secret())).build();
         let current_user = discord_client.get_current_user().await?;
         let user_id = current_user.id.get();
+
+        // Ensure the users row exists before any FK-dependent insert
+        // (discord_oauth_tokens, connected_youtube_accounts, ...).
+        if self.user_repo.read(user_id as i64).await?.is_none() {
+            self.user_repo
+                .add(CreateUserDto { id: user_id as i64 })
+                .await?;
+        }
 
         let claims = Claims::new(user_id.into(), expiration);
         let jwt = claims

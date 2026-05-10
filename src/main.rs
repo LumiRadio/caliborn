@@ -55,7 +55,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Run the HTTP server (default when no subcommand is given).
-    Serve,
+    Serve {
+        /// Skip running pending migrations on startup.
+        #[arg(long)]
+        no_migrate: bool,
+    },
 
     /// Database migration operations.
     Migrate {
@@ -158,7 +162,7 @@ enum LinkedRolesOp {
     },
 }
 
-async fn serve(config: Config) -> Result<(), ApplicationError> {
+async fn serve(config: Config, no_migrate: bool) -> Result<(), ApplicationError> {
     let oauth_client = caliborn::build_oauth2_client(
         &config.discord.client_id,
         &config.discord.client_secret,
@@ -172,6 +176,16 @@ async fn serve(config: Config) -> Result<(), ApplicationError> {
     let db = sea_orm::Database::connect(&config.database_url)
         .await
         .inspect_err(|e| tracing::error!(error = ?e))?;
+
+    if !no_migrate {
+        tracing::info!("Running pending migrations (pass --no-migrate to skip)");
+        migration::Migrator::up(&db, None)
+            .await
+            .inspect_err(|e| tracing::error!(error = ?e))?;
+    } else {
+        tracing::info!("Skipping migrations (--no-migrate)");
+    }
+
     let liquidsoap_client = LiquidsoapClientImpl::new(&config.liquidsoap_socket)
         .await
         .inspect_err(|e| tracing::error!(error = ?e))?;
@@ -520,7 +534,7 @@ async fn migrate(config: Config, op: MigrateOp) -> Result<(), ApplicationError> 
 }
 
 async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
-    let command = cli.command.unwrap_or(Command::Serve);
+    let command = cli.command.unwrap_or(Command::Serve { no_migrate: false });
 
     if let Command::Openapi {
         format,
@@ -533,7 +547,7 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
 
     let config = Config::new()?;
     match command {
-        Command::Serve => serve(config).await,
+        Command::Serve { no_migrate } => serve(config, no_migrate).await,
         Command::Migrate { op } => migrate(config, op).await,
         Command::Index {
             path,

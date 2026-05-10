@@ -1,0 +1,60 @@
+name: caliborn-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: caliborn
+      POSTGRES_PASSWORD: caliborn
+      POSTGRES_DB: caliborn
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caliborn -d caliborn"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  liquidsoap:
+    image: savonet/liquidsoap:v2.3.3
+    user: "0:0"
+    command: ["/etc/liquidsoap/dev.liq"]
+    volumes:
+      - ./dev/liquidsoap.liq:/etc/liquidsoap/dev.liq:ro
+      - ls-sock:/sock
+      - music:/music
+      - ./dev/playlist.m3u:/music/playlist.m3u
+    healthcheck:
+      test: ["CMD-SHELL", "test -S /sock/liquidsoap.sock"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  caliborn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ./dev/.env
+    environment:
+      CALIBORN__DATABASE_URL: postgres://caliborn:caliborn@postgres:5432/caliborn
+      CALIBORN__LIQUIDSOAP_SOCKET: /sock/liquidsoap.sock
+      CALIBORN__LIQUIDSOAP_PLAYLIST_SOURCE: playlist
+      RUST_LOG: caliborn=debug,info
+    ports:
+      - "8000:8000"
+    volumes:
+      - ls-sock:/sock
+      - music:/music
+    depends_on:
+      postgres:
+        condition: service_healthy
+      liquidsoap:
+        condition: service_healthy
+
+volumes:
+  pg-data:
+  ls-sock:
+  music:

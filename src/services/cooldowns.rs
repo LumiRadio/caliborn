@@ -8,7 +8,7 @@ use crate::{
     entities,
     repositories::{
         AlwaysCloneableConnection, BaseRepository,
-        cooldowns::{CooldownFilter, CooldownScope, CreateCooldownDto},
+        cooldowns::{CooldownFilter, CooldownRepositoryExt, CooldownScope, CreateCooldownDto},
     },
 };
 
@@ -47,22 +47,10 @@ impl CooldownService {
         key: &str,
         duration: chrono::Duration,
     ) -> Result<(), CooldownServiceError> {
-        let maybe_cooldown = self
-            .cooldown_repository
-            .browse(
-                CooldownFilter::new()
-                    .scope(CooldownScope::Global)
-                    .key(key.to_string()),
-            )
-            .await?
-            .items
-            .into_iter()
-            .next();
-        if maybe_cooldown.is_some() {
-            return Err(CooldownServiceError::GlobalCooldownAlreadyExists(
-                key.to_string(),
-            ));
-        }
+        // Drop any prior row (typically an expired one — callers gate active
+        // cooldowns via `on_cooldown` before calling `set`). Treating a stale
+        // row as "already exists" leaves cooldowns wedged forever.
+        self.cooldown_repository.delete_global(key).await?;
 
         let now = chrono::Utc::now();
         self.cooldown_repository
@@ -134,23 +122,9 @@ impl CooldownService {
         user_id: UserId,
         duration: chrono::Duration,
     ) -> Result<(), CooldownServiceError> {
-        if self
-            .cooldown_repository
-            .browse(
-                CooldownFilter::new()
-                    .scope(CooldownScope::User)
-                    .key(key.to_string())
-                    .user_id(user_id.into()),
-            )
-            .await?
-            .items
-            .first()
-            .is_some()
-        {
-            return Err(CooldownServiceError::UserCooldownAlreadyExists(
-                key.to_string(),
-            ));
-        }
+        self.cooldown_repository
+            .delete_user(user_id.into(), key)
+            .await?;
 
         let now = chrono::Utc::now();
         self.cooldown_repository
@@ -180,9 +154,10 @@ impl CooldownService {
                     .user_id(user_id.into()),
             )
             .await?;
-        let expires_at = cooldown.map(|m| m.expires_at);
-
-        Ok(expires_at)
+        let now = chrono::Utc::now().naive_utc();
+        Ok(cooldown
+            .map(|m| m.expires_at)
+            .filter(|expires_at| *expires_at > now))
     }
 
     pub async fn get_global_cooldown(
@@ -197,9 +172,10 @@ impl CooldownService {
                     .key(key.to_string()),
             )
             .await?;
-        let expires_at = cooldown.map(|m| m.expires_at);
-
-        Ok(expires_at)
+        let now = chrono::Utc::now().naive_utc();
+        Ok(cooldown
+            .map(|m| m.expires_at)
+            .filter(|expires_at| *expires_at > now))
     }
 
     pub async fn is_on_user_cooldown(

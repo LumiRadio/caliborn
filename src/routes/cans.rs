@@ -34,18 +34,8 @@ use crate::{
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"}))
     )
 )]
-pub async fn get_can_count(
-    AuthenticatedUser(actor): AuthenticatedUser,
-    State(registry): State<ServiceRegistry>,
-) -> CalibornResult<CanCountDto> {
+pub async fn get_can_count(State(registry): State<ServiceRegistry>) -> CalibornResult<CanCountDto> {
     let can_service = registry.can_service();
-    let user_service = registry.user_service();
-
-    user_service
-        .user_has_permission(actor.user_id(), PERM_USE_MINIGAMES)
-        .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
-
     let count = can_service.count().await?;
     Ok(CanCountDto { count })
 }
@@ -91,8 +81,11 @@ pub async fn add_can(
 }
 
 pub fn routes(state: AppState) -> Router<AppState> {
+    let authed = Router::new()
+        .route("/add", post(add_can))
+        .layer(axum::middleware::from_fn_with_state(state, authenticate));
+
     Router::new()
         .route("/count", get(get_can_count))
-        .route("/add", post(add_can))
-        .layer(axum::middleware::from_fn_with_state(state, authenticate))
+        .merge(authed)
 }

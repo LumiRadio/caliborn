@@ -23,6 +23,10 @@ use crate::{
         (status = 200, description = "User was successfully retrieved", body = UserDto),
         (status = 401, description = "An authorization error occurred (e.g. invalid access token)", body = ErrorResponse, example = json!({"message": "Invalid access token", "error": "Unauthorized"})),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"}))
+    ),
+    security(
+        ("user_jwt" = []),
+        ("user_api_key" = [])
     )
 )]
 #[axum::debug_handler]
