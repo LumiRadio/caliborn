@@ -26,8 +26,12 @@ pub enum Relation {
     Cans,
     #[sea_orm(has_many = "super::connected_youtube_accounts::Entity")]
     ConnectedYoutubeAccounts,
+    #[sea_orm(has_one = "super::discord_role_connections::Entity")]
+    DiscordRoleConnections,
     #[sea_orm(has_many = "super::favourite_songs::Entity")]
     FavouriteSongs,
+    #[sea_orm(has_many = "super::minigame_history::Entity")]
+    MinigameHistory,
     #[sea_orm(
         belongs_to = "super::roles::Entity",
         from = "Column::Role",
@@ -58,9 +62,21 @@ impl Related<super::connected_youtube_accounts::Entity> for Entity {
     }
 }
 
+impl Related<super::discord_role_connections::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::DiscordRoleConnections.def()
+    }
+}
+
 impl Related<super::favourite_songs::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::FavouriteSongs.def()
+    }
+}
+
+impl Related<super::minigame_history::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MinigameHistory.def()
     }
 }
 

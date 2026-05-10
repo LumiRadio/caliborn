@@ -17,6 +17,9 @@ mod m20250715_105638_seed_roles;
 mod m20250715_111004_seed_permissions;
 mod m20250715_164729_seed_role_permissions;
 mod m20251127_103126_edit_users_add_role_id;
+mod m20260510_120000_create_radio_state;
+mod m20260510_120100_create_minigame_history;
+mod m20260510_120200_create_discord_role_connections;
 
 pub struct Migrator;
 
@@ -41,6 +44,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20250715_111004_seed_permissions::Migration),
             Box::new(m20250715_164729_seed_role_permissions::Migration),
             Box::new(m20251127_103126_edit_users_add_role_id::Migration),
+            Box::new(m20260510_120000_create_radio_state::Migration),
+            Box::new(m20260510_120100_create_minigame_history::Migration),
+            Box::new(m20260510_120200_create_discord_role_connections::Migration),
         ]
     }
 }
