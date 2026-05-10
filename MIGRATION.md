@@ -167,15 +167,25 @@ trigger it from `AuthService::login_user` after the YouTube upsert.
 
 ### Music indexing / housekeeping / playlist gen
 
-Not yet ported. Continue using `frohike` for now:
+Ported from `frohike`. Use Caliborn directly:
 
 ```bash
-frohike indexing -D "$CALIBORN__DATABASE_URL" /path/to/music --playlist /path/to/lumiradio.m3u
-frohike housekeeping -D "$CALIBORN__DATABASE_URL" /path/to/music
+caliborn index /path/to/music --playlist /path/to/lumiradio.m3u
+caliborn housekeep /path/to/music
+caliborn playlist /path/to/lumiradio.m3u --reload
 ```
 
-Caliborn's `index` / `housekeep` / `playlist` subcommands are stubs that
-return `NotImplemented` until the port lands.
+`index` walks the tree, prunes `songs` / `songs_fulltext` / `song_tags`, and
+re-indexes every supported audio file (mp3, flac, ogg, wav). `--dry-run`
+skips writes. `housekeep` runs forever, polling the tree at a 5s interval
+and applying create/rename/delete events incrementally. `playlist`
+rewrites the `.m3u` from current `songs.file_path` rows; with `--reload`,
+sends `playlist.reload` to Liquidsoap over the configured socket (adjust
+the source name in `main.rs::playlist_cmd` if your Liquidsoap playlist
+source isn't named `playlist`).
+
+Requires the `ffmpeg` shared libraries on the host (the `ffmpeg-next`
+dependency links against system `libavformat` / `libavcodec`).
 
 ### Encryption-key rotation
 
@@ -221,7 +231,6 @@ needs its own pg_dump + observation window:
   deliberate "retire grist" decision is made.
 - Drop `slcb_*` tables — **no, never**: kept permanently for late-joining
   users.
-- Port `frohike index` / `housekeep` / `playlist` into Caliborn.
 - Refresh-token storage encryption-key rotation tool.
 - Auto-trigger `match-slcb` from the login flow.
 

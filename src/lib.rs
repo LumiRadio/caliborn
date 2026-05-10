@@ -31,6 +31,7 @@ pub mod dtos;
 pub mod entities;
 pub mod fixtures;
 pub mod liquidsoap;
+pub mod maintenance;
 pub mod pg_extension;
 /// Realtime fan-out (WebSocket events).
 pub mod realtime;

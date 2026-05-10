@@ -31,6 +31,10 @@ enum ApplicationError {
     LinkedRoles(String),
     #[error(transparent)]
     Sealer(#[from] caliborn::services::secrets::SealerError),
+    #[error(transparent)]
+    Maintenance(#[from] caliborn::maintenance::MaintenanceError),
+    #[error(transparent)]
+    Notify(#[from] notify::Error),
 }
 
 #[derive(Parser)]
@@ -251,6 +255,207 @@ async fn match_slcb(config: Config) -> Result<(), ApplicationError> {
     Ok(())
 }
 
+async fn index(
+    config: Config,
+    path: PathBuf,
+    playlist: Option<PathBuf>,
+    dry_run: bool,
+) -> Result<(), ApplicationError> {
+    let db = sea_orm::Database::connect(&config.database_url).await?;
+    caliborn::maintenance::indexing::index(&db, path, dry_run).await?;
+
+    if let Some(playlist_path) = playlist {
+        if dry_run {
+            tracing::info!(
+                "dry_run: skipping playlist write to {}",
+                playlist_path.display()
+            );
+        } else {
+            tracing::info!("Generating playlist at {}", playlist_path.display());
+            caliborn::maintenance::playlist::create_playlist(&db, &playlist_path).await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn playlist_cmd(config: Config, out: PathBuf, reload: bool) -> Result<(), ApplicationError> {
+    let db = sea_orm::Database::connect(&config.database_url).await?;
+    caliborn::maintenance::playlist::create_playlist(&db, &out).await?;
+    tracing::info!("Wrote playlist to {}", out.display());
+
+    if reload {
+        use caliborn::liquidsoap::LiquidsoapClient as _;
+        let mut client = LiquidsoapClientImpl::new(&config.liquidsoap_socket).await?;
+        let response = client.command_with_reconnect("playlist.reload").await?;
+        tracing::info!("Liquidsoap playlist.reload -> {}", response.trim());
+        client.shutdown().await?;
+    }
+
+    Ok(())
+}
+
+async fn housekeep(
+    config: Config,
+    music_path: PathBuf,
+    dry_run: bool,
+) -> Result<(), ApplicationError> {
+    use notify::Watcher;
+    use std::sync::Arc;
+
+    if dry_run {
+        tracing::warn!("housekeep --dry-run: watcher will run but no DB writes will occur");
+    }
+
+    let db = sea_orm::Database::connect(&config.database_url).await?;
+    let db = Arc::new(db);
+    let music_path = Arc::new(music_path);
+
+    let handle = tokio::runtime::Handle::current();
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<notify::Result<notify::event::Event>>(64);
+    let tx = Arc::new(Mutex::new(tx));
+
+    let mut watcher = notify::PollWatcher::new(
+        {
+            let tx = Arc::clone(&tx);
+            let handle = handle.clone();
+            move |res| {
+                tracing::debug!("received event: {:?}", res);
+                let tx = Arc::clone(&tx);
+                handle.spawn(async move {
+                    let tx = tx.lock().await;
+                    if let Err(e) = tx.send(res).await {
+                        tracing::error!("failed to forward fs event: {}", e);
+                    }
+                });
+            }
+        },
+        notify::Config::default().with_poll_interval(std::time::Duration::from_secs(5)),
+    )?;
+
+    watcher.watch(music_path.as_ref(), notify::RecursiveMode::Recursive)?;
+
+    tracing::info!("housekeep: watching {}", music_path.display());
+
+    while let Some(res) = rx.recv().await {
+        let event = match res {
+            Ok(event) => event,
+            Err(e) => {
+                tracing::error!("watch error: {}", e);
+                continue;
+            }
+        };
+
+        if let Err(e) = handle_fs_event(&db, &music_path, &event, dry_run).await {
+            tracing::error!("failed to apply fs event {:?}: {}", event.kind, e);
+        }
+    }
+
+    Ok(())
+}
+
+async fn handle_fs_event(
+    db: &sea_orm::DatabaseConnection,
+    music_path: &std::path::Path,
+    event: &notify::event::Event,
+    dry_run: bool,
+) -> Result<(), caliborn::maintenance::MaintenanceError> {
+    use caliborn::maintenance::indexing::{drop_index, drop_index_folder, index_file};
+    use caliborn::maintenance::is_supported_audio;
+    use notify::event::{
+        AccessKind, AccessMode, CreateKind, EventKind, ModifyKind, RemoveKind, RenameMode,
+    };
+
+    let Some(file_path) = event.paths.first() else {
+        return Ok(());
+    };
+
+    match &event.kind {
+        EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
+            tracing::debug!("file written: {:?}", file_path);
+            index_file(db, file_path, music_path, dry_run).await?;
+        }
+        EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
+            tracing::debug!("rename from: {:?}", file_path);
+            if file_path.is_file() {
+                drop_index(db, file_path, music_path).await?;
+            } else if file_path.is_dir() {
+                drop_index_folder(db, file_path, music_path).await?;
+            } else if is_supported_audio(file_path) {
+                drop_index(db, file_path, music_path).await?;
+            }
+        }
+        EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
+            tracing::debug!("rename to: {:?}", file_path);
+            if file_path.is_file() {
+                index_file(db, file_path, music_path, dry_run).await?;
+            } else if file_path.is_dir() {
+                for entry in walkdir::WalkDir::new(file_path) {
+                    let entry = match entry {
+                        Ok(e) => e,
+                        Err(e) => {
+                            tracing::warn!("walkdir error: {}", e);
+                            continue;
+                        }
+                    };
+                    if entry.file_type().is_file() {
+                        index_file(db, entry.path(), music_path, dry_run).await?;
+                    }
+                }
+            }
+        }
+        EventKind::Create(CreateKind::Any)
+        | EventKind::Create(CreateKind::File)
+        | EventKind::Create(CreateKind::Folder) => {
+            tracing::debug!("created: {:?}", file_path);
+            if file_path.is_file() {
+                index_file(db, file_path, music_path, dry_run).await?;
+            } else if file_path.is_dir() {
+                for entry in walkdir::WalkDir::new(file_path) {
+                    let entry = match entry {
+                        Ok(e) => e,
+                        Err(e) => {
+                            tracing::warn!("walkdir error: {}", e);
+                            continue;
+                        }
+                    };
+                    if entry.file_type().is_file() {
+                        index_file(db, entry.path(), music_path, dry_run).await?;
+                    }
+                }
+            } else {
+                tracing::warn!("created path is neither file nor folder: {:?}", file_path);
+            }
+        }
+        EventKind::Remove(RemoveKind::Any) => {
+            tracing::debug!("removed: {:?}", file_path);
+            if file_path.is_file() {
+                drop_index(db, file_path, music_path).await?;
+            } else if file_path.is_dir() {
+                drop_index_folder(db, file_path, music_path).await?;
+            } else if is_supported_audio(file_path) {
+                drop_index(db, file_path, music_path).await?;
+            } else {
+                tracing::warn!(
+                    "removed path no longer exists and not audio: {:?}",
+                    file_path
+                );
+            }
+        }
+        EventKind::Remove(RemoveKind::File) => {
+            tracing::debug!("file removed: {:?}", file_path);
+            drop_index(db, file_path, music_path).await?;
+        }
+        EventKind::Remove(RemoveKind::Folder) => {
+            tracing::debug!("folder removed: {:?}", file_path);
+            drop_index_folder(db, file_path, music_path).await?;
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
 async fn migrate(config: Config, op: MigrateOp) -> Result<(), ApplicationError> {
     let db = sea_orm::Database::connect(&config.database_url).await?;
     match op {
@@ -267,15 +472,13 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
     match cli.command.unwrap_or(Command::Serve) {
         Command::Serve => serve(config).await,
         Command::Migrate { op } => migrate(config, op).await,
-        Command::Index { .. } => Err(ApplicationError::NotImplemented(
-            "`index`: port from frohike not yet landed",
-        )),
-        Command::Housekeep { .. } => Err(ApplicationError::NotImplemented(
-            "`housekeep`: port from frohike not yet landed",
-        )),
-        Command::Playlist { .. } => Err(ApplicationError::NotImplemented(
-            "`playlist`: port from frohike not yet landed",
-        )),
+        Command::Index {
+            path,
+            playlist,
+            dry_run,
+        } => index(config, path, playlist, dry_run).await,
+        Command::Housekeep { path, dry_run } => housekeep(config, path, dry_run).await,
+        Command::Playlist { out, reload } => playlist_cmd(config, out, reload).await,
         Command::LinkedRoles { op } => linked_roles(config, op).await,
         Command::ImportSlcb { path, dry_run } => import_slcb(config, path, dry_run).await,
         Command::MatchSlcb => match_slcb(config).await,
