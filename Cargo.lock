@@ -641,6 +641,7 @@ dependencies = [
  "axum",
  "axum-macros",
  "chrono",
+ "clap",
  "figment",
  "hex",
  "hmac",

@@ -50,6 +50,7 @@ rust-stemmers = "1.2.0"
 stopwords = "0.1.1"
 shared_constants = { path = "./shared_constants" }
 paste = "1.0.15"
+clap = { version = "4.5", features = ["derive"] }
 
 [dev-dependencies]
 mockall = "0.13.1"

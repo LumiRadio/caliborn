@@ -1,7 +1,9 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use caliborn::{LiquidsoapClientImpl, LiquidsoapError};
+use clap::{Parser, Subcommand};
 use hmac::{Hmac, Mac};
+use migration::MigratorTrait;
 use sha2::Sha256;
 use tokio::sync::Mutex;
 
@@ -23,9 +25,104 @@ enum ApplicationError {
     SeaOrm(#[from] sea_orm::DbErr),
     #[error(transparent)]
     Liquidsoap(#[from] LiquidsoapError),
+    #[error("{0}")]
+    NotImplemented(&'static str),
 }
 
-async fn async_main(config: Config) -> Result<(), ApplicationError> {
+#[derive(Parser)]
+#[command(
+    name = "caliborn",
+    about = "LumiRadio backend server and operations CLI",
+    version
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Run the HTTP server (default when no subcommand is given).
+    Serve,
+
+    /// Database migration operations.
+    Migrate {
+        #[command(subcommand)]
+        op: MigrateOp,
+    },
+
+    /// Index a music directory into the database.
+    Index {
+        /// Path to the music root.
+        path: PathBuf,
+        /// Optional path to also write a refreshed `.m3u` playlist to.
+        #[arg(short, long)]
+        playlist: Option<PathBuf>,
+        /// Don't write to the database; report what would change.
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Drop song rows whose files no longer exist on disk and prune orphans.
+    Housekeep {
+        /// Path to the music root.
+        path: PathBuf,
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// (Re)write the `.m3u` playlist from current `songs` rows.
+    Playlist {
+        /// Output path for the `.m3u` file.
+        out: PathBuf,
+        /// After writing, ask Liquidsoap to reload it.
+        #[arg(long)]
+        reload: bool,
+    },
+
+    /// Discord linked-roles management.
+    LinkedRoles {
+        #[command(subcommand)]
+        op: LinkedRolesOp,
+    },
+
+    /// Import legacy Streamlabs Chatbot data from a JSON dump.
+    ImportSlcb {
+        path: PathBuf,
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Re-run the YouTube-channel-id matching pass against `connected_youtube_accounts`.
+    MatchSlcb,
+}
+
+#[derive(Subcommand)]
+enum MigrateOp {
+    /// Apply all pending migrations.
+    Up {
+        /// Apply at most N migrations.
+        #[arg(short, long)]
+        steps: Option<u32>,
+    },
+    /// Roll back the last applied migration.
+    Down {
+        #[arg(short, long, default_value_t = 1)]
+        steps: u32,
+    },
+    /// Print migration status.
+    Status,
+    /// Drop everything and re-apply (DANGEROUS — dev only).
+    Fresh,
+}
+
+#[derive(Subcommand)]
+enum LinkedRolesOp {
+    /// Register the role-connections metadata schema with Discord.
+    Register,
+}
+
+async fn serve(config: Config) -> Result<(), ApplicationError> {
     let oauth_client = caliborn::build_oauth2_client(
         &config.discord.client_id,
         &config.discord.client_secret,
@@ -61,11 +158,48 @@ async fn async_main(config: Config) -> Result<(), ApplicationError> {
     Ok(())
 }
 
-fn main() -> Result<(), ApplicationError> {
+async fn migrate(config: Config, op: MigrateOp) -> Result<(), ApplicationError> {
+    let db = sea_orm::Database::connect(&config.database_url).await?;
+    match op {
+        MigrateOp::Up { steps } => migration::Migrator::up(&db, steps).await?,
+        MigrateOp::Down { steps } => migration::Migrator::down(&db, Some(steps)).await?,
+        MigrateOp::Status => migration::Migrator::status(&db).await?,
+        MigrateOp::Fresh => migration::Migrator::fresh(&db).await?,
+    }
+    Ok(())
+}
+
+async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
     let config = Config::new()?;
+    match cli.command.unwrap_or(Command::Serve) {
+        Command::Serve => serve(config).await,
+        Command::Migrate { op } => migrate(config, op).await,
+        Command::Index { .. } => Err(ApplicationError::NotImplemented(
+            "`index`: port from frohike landing in a follow-up phase",
+        )),
+        Command::Housekeep { .. } => Err(ApplicationError::NotImplemented(
+            "`housekeep`: port from frohike landing in a follow-up phase",
+        )),
+        Command::Playlist { .. } => Err(ApplicationError::NotImplemented(
+            "`playlist`: port from frohike landing in a follow-up phase",
+        )),
+        Command::LinkedRoles { .. } => Err(ApplicationError::NotImplemented(
+            "`linked-roles register`: lands in Phase 8",
+        )),
+        Command::ImportSlcb { .. } => Err(ApplicationError::NotImplemented(
+            "`import-slcb`: lands in Phase 10",
+        )),
+        Command::MatchSlcb => Err(ApplicationError::NotImplemented(
+            "`match-slcb`: lands in Phase 10",
+        )),
+    }
+}
+
+fn main() -> Result<(), ApplicationError> {
+    let cli = Cli::parse();
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(async_main(config))
+        .block_on(dispatch(cli))
 }
