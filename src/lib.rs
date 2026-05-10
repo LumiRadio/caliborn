@@ -117,6 +117,7 @@ pub fn make_app(
         .nest("/user", routes::user::routes(app_state.clone()))
         .nest("/cans", routes::cans::routes(app_state.clone()))
         .nest("/bears", routes::bears::routes(app_state.clone()))
+        .nest("/minigames", routes::minigames::routes(app_state.clone()))
         .nest("/songs", routes::songs::routes(app_state.clone()))
         .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
         .with_state(app_state);

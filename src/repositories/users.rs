@@ -18,6 +18,17 @@ pub enum TransferError {
     Db(#[from] sea_orm::DbErr),
 }
 
+/// Error returned by atomic balance-mutation methods on [`UserRepositoryExt`].
+#[derive(thiserror::Error, Debug)]
+pub enum BalanceUpdateError {
+    #[error("User does not exist")]
+    UserNotFound,
+    #[error("Insufficient funds")]
+    InsufficientFunds,
+    #[error(transparent)]
+    Db(#[from] sea_orm::DbErr),
+}
+
 /// A trait representing a repository for users.
 #[async_trait::async_trait]
 pub trait UserRepositoryExt: Send + Sync + 'static {
@@ -159,6 +170,23 @@ pub trait UserRepositoryExt: Send + Sync + 'static {
         to_id: i64,
         amount: i32,
     ) -> Result<(i32, i32), TransferError>;
+
+    /// Atomically applies a slot-machine round: deducts `bet`, then credits
+    /// `bet * payout_multiplier` (skipped when the multiplier is 0).
+    ///
+    /// # Returns
+    /// The user's balance after the round.
+    ///
+    /// # Errors
+    /// - [`BalanceUpdateError::UserNotFound`] if `user_id` does not exist.
+    /// - [`BalanceUpdateError::InsufficientFunds`] if balance < `bet`.
+    /// - [`BalanceUpdateError::Db`] for any underlying database error.
+    async fn apply_slot_outcome(
+        &self,
+        user_id: i64,
+        bet: i32,
+        payout_multiplier: u32,
+    ) -> Result<i32, BalanceUpdateError>;
 }
 
 generate_dtos!(
@@ -477,6 +505,67 @@ impl UserRepositoryExt for BaseRepository<entities::users::Entity> {
             .await
             .map_err(|e| match e {
                 sea_orm::TransactionError::Connection(db) => TransferError::Db(db),
+                sea_orm::TransactionError::Transaction(t) => t,
+            })
+    }
+
+    async fn apply_slot_outcome(
+        &self,
+        user_id: i64,
+        bet: i32,
+        payout_multiplier: u32,
+    ) -> Result<i32, BalanceUpdateError> {
+        self.db
+            .transaction::<_, i32, BalanceUpdateError>(|txn| {
+                Box::pin(async move {
+                    let deduct = entities::users::Entity::update_many()
+                        .col_expr(
+                            entities::users::Column::Boonbucks,
+                            Expr::col(entities::users::Column::Boonbucks).sub(bet),
+                        )
+                        .filter(entities::users::Column::Id.eq(user_id))
+                        .filter(entities::users::Column::Boonbucks.gte(bet))
+                        .exec(txn)
+                        .await
+                        .map_err(BalanceUpdateError::Db)?;
+
+                    if deduct.rows_affected == 0 {
+                        let exists = entities::users::Entity::find_by_id(user_id)
+                            .count(txn)
+                            .await
+                            .map_err(BalanceUpdateError::Db)?;
+                        return if exists == 0 {
+                            Err(BalanceUpdateError::UserNotFound)
+                        } else {
+                            Err(BalanceUpdateError::InsufficientFunds)
+                        };
+                    }
+
+                    if payout_multiplier > 0 {
+                        let payout = (bet as i64) * (payout_multiplier as i64);
+                        let payout: i32 = payout.try_into().unwrap_or(i32::MAX);
+                        entities::users::Entity::update_many()
+                            .col_expr(
+                                entities::users::Column::Boonbucks,
+                                Expr::col(entities::users::Column::Boonbucks).add(payout),
+                            )
+                            .filter(entities::users::Column::Id.eq(user_id))
+                            .exec(txn)
+                            .await
+                            .map_err(BalanceUpdateError::Db)?;
+                    }
+
+                    let user = entities::users::Entity::find_by_id(user_id)
+                        .one(txn)
+                        .await
+                        .map_err(BalanceUpdateError::Db)?
+                        .ok_or(BalanceUpdateError::UserNotFound)?;
+                    Ok(user.boonbucks)
+                })
+            })
+            .await
+            .map_err(|e| match e {
+                sea_orm::TransactionError::Connection(db) => BalanceUpdateError::Db(db),
                 sea_orm::TransactionError::Transaction(t) => t,
             })
     }

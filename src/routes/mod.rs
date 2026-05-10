@@ -4,6 +4,8 @@ pub mod auth;
 pub mod bears;
 /// Can routes
 pub mod cans;
+/// Minigame routes
+pub mod minigames;
 /// Song routes
 pub mod songs;
 /// User routes

@@ -44,6 +44,7 @@ pub mod auth;
 pub mod cans;
 pub mod economy;
 pub mod error;
+pub mod minigames;
 pub mod page;
 pub mod songs;
 pub mod users;

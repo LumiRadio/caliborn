@@ -78,6 +78,56 @@ impl CooldownService {
         Ok(())
     }
 
+    /// Set a per-user cooldown, replacing any existing row (including expired
+    /// ones). Use this from minigames where the same key is set every play.
+    pub async fn replace_user_cooldown(
+        &self,
+        key: &str,
+        user_id: UserId,
+        duration: chrono::Duration,
+    ) -> Result<(), CooldownServiceError> {
+        use crate::repositories::ApplyDeleteFilter;
+
+        struct Filter {
+            key: String,
+            user_id: i64,
+        }
+
+        #[async_trait::async_trait]
+        impl ApplyDeleteFilter<entities::cooldown::Entity> for Filter {
+            async fn apply_delete(
+                &self,
+                query: sea_orm::DeleteMany<entities::cooldown::Entity>,
+            ) -> sea_orm::DeleteMany<entities::cooldown::Entity> {
+                use sea_orm::{ColumnTrait, QueryFilter};
+                query
+                    .filter(entities::cooldown::Column::Scope.eq(CooldownScope::User.to_string()))
+                    .filter(entities::cooldown::Column::Key.eq(self.key.clone()))
+                    .filter(entities::cooldown::Column::UserId.eq(self.user_id))
+            }
+        }
+
+        self.cooldown_repository
+            .delete_by(Filter {
+                key: key.to_string(),
+                user_id: user_id.into(),
+            })
+            .await?;
+
+        let now = chrono::Utc::now();
+        self.cooldown_repository
+            .add(CreateCooldownDto {
+                scope: CooldownScope::User.to_string(),
+                user_id: Some(user_id.into()),
+                key: key.to_string(),
+                expires_at: (now + duration).naive_utc(),
+            })
+            .await
+            .map_err(CooldownServiceError::from)?;
+
+        Ok(())
+    }
+
     pub async fn set_user_cooldown(
         &self,
         key: &str,
@@ -223,6 +273,17 @@ pub trait UserCooldown: Display {
     ) -> Result<(), CooldownServiceError> {
         service
             .set_user_cooldown(&self.to_string(), user_id, self.duration())
+            .await
+    }
+
+    /// Replace any existing cooldown row (including expired ones).
+    async fn set_or_replace(
+        &self,
+        service: &CooldownService,
+        user_id: UserId,
+    ) -> Result<(), CooldownServiceError> {
+        service
+            .replace_user_cooldown(&self.to_string(), user_id, self.duration())
             .await
     }
 

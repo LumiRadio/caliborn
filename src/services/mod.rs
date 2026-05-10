@@ -13,7 +13,8 @@ use crate::{
     repositories::AlwaysCloneableConnection,
     services::{
         admin::AdminCrudService, auth::AuthService, cans::CansService, cooldowns::CooldownService,
-        economy::EconomyService, songs::SongService, users::UserService,
+        economy::EconomyService, minigames::MinigameService, songs::SongService,
+        users::UserService,
     },
 };
 
@@ -22,6 +23,7 @@ pub mod auth;
 pub mod cans;
 pub mod cooldowns;
 pub mod economy;
+pub mod minigames;
 pub mod songs;
 pub mod users;
 
@@ -101,6 +103,7 @@ pub struct ServiceRegistry {
     can_service: CachedService<CansService>,
     cooldown_service: CachedService<CooldownService>,
     song_service: CachedService<SongService>,
+    minigame_service: CachedService<MinigameService>,
 }
 
 impl ServiceRegistry {
@@ -123,6 +126,7 @@ impl ServiceRegistry {
             can_service: CachedService::new(),
             cooldown_service: CachedService::new(),
             song_service: CachedService::new(),
+            minigame_service: CachedService::new(),
             liquidsoap_client,
         }
     }
@@ -166,5 +170,10 @@ impl ServiceRegistry {
     pub fn song_service(&self) -> Arc<SongService> {
         self.song_service
             .get_or_init(|| SongService::new(&self.db, self, self.liquidsoap_client.clone()))
+    }
+
+    pub fn minigame_service(&self) -> Arc<MinigameService> {
+        self.minigame_service
+            .get_or_init(|| MinigameService::new(&self.db, self))
     }
 }
