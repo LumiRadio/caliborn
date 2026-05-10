@@ -1,48 +1,88 @@
-use sea_orm::{ActiveValue, prelude::*};
+use sea_orm::prelude::*;
 
 use crate::{
-    entities,
-    repositories::{AlwaysCloneableConnection, RepositoryError},
+    entities, generate_dtos,
+    repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
 };
+
+generate_dtos!(
+    entities::server_channel_config::Entity,
+    CreateServerChannelConfigDto {
+        id: i64,
+        server_id: i64,
+    },
+    UpdateServerChannelConfigDto {
+        hydration_reminder: Option<bool>,
+        allow_watch_time_accumulation: Option<bool>,
+        allow_point_accumulation: Option<bool>,
+        last_message_sent: Option<Option<chrono::NaiveDateTime>>,
+    }
+);
+
+#[derive(Default)]
+pub struct ServerChannelConfigFilter {
+    server_id: Option<i64>,
+    hydration_reminder: Option<bool>,
+    allow_watch_time_accumulation: Option<bool>,
+    allow_point_accumulation: Option<bool>,
+    last_message_sent: Option<Option<chrono::NaiveDateTime>>,
+    page: Option<u64>,
+    page_size: Option<u64>,
+}
+
+#[async_trait::async_trait]
+impl ApplyQueryFilter<entities::server_channel_config::Entity> for ServerChannelConfigFilter {
+    async fn apply(
+        &self,
+        query: Select<entities::server_channel_config::Entity>,
+    ) -> Select<entities::server_channel_config::Entity> {
+        let mut query = query;
+
+        if let Some(server_id) = self.server_id {
+            query = query.filter(entities::server_channel_config::Column::ServerId.eq(server_id));
+        }
+
+        if let Some(hydration_reminder) = self.hydration_reminder {
+            query = query.filter(
+                entities::server_channel_config::Column::HydrationReminder.eq(hydration_reminder),
+            );
+        }
+
+        if let Some(allow_watch_time_accumulation) = self.allow_watch_time_accumulation {
+            query = query.filter(
+                entities::server_channel_config::Column::AllowWatchTimeAccumulation
+                    .eq(allow_watch_time_accumulation),
+            );
+        }
+
+        if let Some(allow_point_accumulation) = self.allow_point_accumulation {
+            query = query.filter(
+                entities::server_channel_config::Column::AllowPointAccumulation
+                    .eq(allow_point_accumulation),
+            );
+        }
+
+        if let Some(last_message_sent) = self.last_message_sent {
+            query = query.filter(
+                entities::server_channel_config::Column::LastMessageSent.eq(last_message_sent),
+            );
+        }
+
+        query
+    }
+
+    fn page_size(&self) -> u64 {
+        self.page_size.unwrap_or(20)
+    }
+
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
+    }
+}
 
 /// A trait representing a repository for server channel configurations.
 #[async_trait::async_trait]
-pub trait ServerChannelConfigRepository: Send + Sync + 'static {
-    /// Find a server channel configuration by its ID.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while retrieving the
-    /// server channel configuration.
-    async fn find_by_id(
-        &self,
-        id: i64,
-    ) -> Result<Option<entities::server_channel_config::Model>, RepositoryError>;
-
-    /// Insert a new server channel configuration into the database.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while inserting the
-    /// server channel configuration.
-    async fn insert(
-        &self,
-        id: i64,
-        server_id: i64,
-    ) -> Result<entities::server_channel_config::Model, RepositoryError>;
-
-    /// Update an existing server channel configuration.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while updating the
-    /// server channel configuration.
-    async fn update(
-        &self,
-        id: i64,
-        params: entities::server_channel_config::ActiveModel,
-    ) -> Result<entities::server_channel_config::Model, RepositoryError>;
-
+pub trait ServerChannelConfigRepositoryExt: Send + Sync + 'static {
     /// Find all channels with hydration reminders enabled.
     ///
     /// # Errors
@@ -54,63 +94,8 @@ pub trait ServerChannelConfigRepository: Send + Sync + 'static {
     ) -> Result<Vec<entities::server_channel_config::Model>, RepositoryError>;
 }
 
-/// A SeaORM implementation of the `ServerChannelConfigRepository` trait.
-pub struct SeaOrmServerChannelConfigRepository {
-    db: AlwaysCloneableConnection,
-}
-
-impl SeaOrmServerChannelConfigRepository {
-    /// Create a new instance of `SeaOrmServerChannelConfigRepository`.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - A reference to a SeaORM database connection.
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
-    }
-}
-
 #[async_trait::async_trait]
-impl ServerChannelConfigRepository for SeaOrmServerChannelConfigRepository {
-    async fn find_by_id(
-        &self,
-        id: i64,
-    ) -> Result<Option<entities::server_channel_config::Model>, RepositoryError> {
-        entities::server_channel_config::Entity::find_by_id(id)
-            .one(&self.db)
-            .await
-            .map_err(RepositoryError::from)
-    }
-
-    async fn insert(
-        &self,
-        id: i64,
-        server_id: i64,
-    ) -> Result<entities::server_channel_config::Model, RepositoryError> {
-        entities::server_channel_config::ActiveModel {
-            id: ActiveValue::set(id),
-            server_id: ActiveValue::set(server_id),
-            ..Default::default()
-        }
-        .insert(&self.db)
-        .await
-        .map_err(RepositoryError::from)
-    }
-
-    async fn update(
-        &self,
-        id: i64,
-        mut params: entities::server_channel_config::ActiveModel,
-    ) -> Result<entities::server_channel_config::Model, RepositoryError> {
-        params.id = ActiveValue::unchanged(id);
-
-        entities::server_channel_config::Entity::update(params)
-            .filter(entities::server_channel_config::Column::Id.eq(id))
-            .exec(&self.db)
-            .await
-            .map_err(RepositoryError::from)
-    }
-
+impl ServerChannelConfigRepositoryExt for BaseRepository<entities::server_channel_config::Entity> {
     async fn find_hydration_channels(
         &self,
     ) -> Result<Vec<entities::server_channel_config::Model>, RepositoryError> {

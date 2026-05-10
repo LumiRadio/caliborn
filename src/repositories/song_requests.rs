@@ -1,22 +1,14 @@
 use chrono::NaiveDateTime;
-use sea_orm::{ActiveValue, QueryOrder, QuerySelect, prelude::*};
+use sea_orm::{QueryOrder, QuerySelect, prelude::*};
 
 use crate::{
-    entities,
-    repositories::{AlwaysCloneableConnection, RepositoryError},
+    entities, generate_dtos,
+    repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
 };
 
 /// A trait representing a repository for song requests.
 #[async_trait::async_trait]
-pub trait SongRequestRepository: Send + Sync + 'static {
-    /// Request a song to be played.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while recording the
-    /// song request.
-    async fn request_song(&self, file_hash: &str, user_id: i64) -> Result<(), RepositoryError>;
-
+pub trait SongRequestRepositoryExt: Send + Sync + 'static {
     /// Get a list of recent song requests.
     ///
     /// # Errors
@@ -57,36 +49,52 @@ pub trait SongRequestRepository: Send + Sync + 'static {
     async fn total_requests(&self) -> Result<u64, RepositoryError>;
 }
 
-/// A SeaORM implementation of the `SongRequestRepository` trait.
-pub struct SeaOrmSongRequestRepository {
-    db: AlwaysCloneableConnection,
+generate_dtos!(
+    entities::song_requests::Entity,
+    CreateSongRequestDto {
+        song_id: String,
+        user_id: i64,
+    }
+);
+
+#[derive(Default)]
+pub struct SongRequestFilter {
+    song_id: Option<String>,
+    user_id: Option<i64>,
+    page: Option<u64>,
+    page_size: Option<u64>,
 }
 
-impl SeaOrmSongRequestRepository {
-    /// Create a new instance of `SeaOrmSongRequestRepository`.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - A reference to a SeaORM database connection.
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
+#[async_trait::async_trait]
+impl ApplyQueryFilter<entities::song_requests::Entity> for SongRequestFilter {
+    async fn apply(
+        &self,
+        query: Select<entities::song_requests::Entity>,
+    ) -> Select<entities::song_requests::Entity> {
+        let mut query = query;
+
+        if let Some(song_id) = &self.song_id {
+            query = query.filter(entities::song_requests::Column::SongId.eq(song_id));
+        }
+
+        if let Some(user_id) = self.user_id {
+            query = query.filter(entities::song_requests::Column::UserId.eq(user_id));
+        }
+
+        query
+    }
+
+    fn page_size(&self) -> u64 {
+        self.page_size.unwrap_or(20)
+    }
+
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
     }
 }
 
 #[async_trait::async_trait]
-impl SongRequestRepository for SeaOrmSongRequestRepository {
-    async fn request_song(&self, file_hash: &str, user_id: i64) -> Result<(), RepositoryError> {
-        entities::song_requests::ActiveModel {
-            song_id: ActiveValue::set(file_hash.to_string()),
-            user_id: ActiveValue::set(user_id),
-            ..Default::default()
-        }
-        .insert(&self.db)
-        .await?;
-
-        Ok(())
-    }
-
+impl SongRequestRepositoryExt for BaseRepository<entities::song_requests::Entity> {
     async fn recent_requests(
         &self,
         limit: u64,

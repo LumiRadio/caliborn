@@ -3,6 +3,7 @@ use axum::{
     extract::State,
     routing::{delete, get, post},
 };
+use shared_constants::permissions::PERM_USE_BOT;
 
 use crate::{
     AppState, ServiceRegistry,
@@ -12,11 +13,7 @@ use crate::{
         page::{Page, PaginationParams},
         songs::{SearchParams, SongDto, SongListDto, SongRequest, SongWithCooldownInfo},
     },
-    services::{
-        auth::{AuthenticatedUser, authenticate},
-        songs::SongService,
-        users::UserService,
-    },
+    services::auth::{AuthenticatedUser, authenticate},
 };
 
 #[axum::debug_handler]
@@ -28,8 +25,11 @@ pub async fn request_song(
     let user_service = registry.user_service();
     let song_service = registry.song_service();
 
-    // ensure user
     user_service.get_user(actor.user_id()).await?;
+    user_service
+        .user_has_permission(actor.user_id(), PERM_USE_BOT)
+        .await?;
+    user_service.update_user_activity(actor.user_id()).await?;
 
     let song_with_cooldown = song_service
         .request_song(actor.user_id(), &song_request.file_hash)
@@ -83,6 +83,14 @@ pub async fn search_favourite_songs(
     Query(pagination): Query<PaginationParams>,
 ) -> CalibornResult<Page<SongDto>> {
     let song_service = registry.song_service();
+    let user_service = registry.user_service();
+
+    user_service.get_user(actor.user_id()).await?;
+    user_service
+        .user_has_permission(actor.user_id(), PERM_USE_BOT)
+        .await?;
+    user_service.update_user_activity(actor.user_id()).await?;
+
     song_service
         .search_favourite_songs(actor.user_id(), &params, &pagination)
         .await
@@ -108,6 +116,14 @@ pub async fn mark_song_as_favourite(
     Query(song_id): Query<String>,
 ) -> CalibornResult<()> {
     let song_service = registry.song_service();
+    let user_service = registry.user_service();
+
+    user_service.get_user(actor.user_id()).await?;
+    user_service
+        .user_has_permission(actor.user_id(), PERM_USE_BOT)
+        .await?;
+    user_service.update_user_activity(actor.user_id()).await?;
+
     song_service
         .mark_song_as_favourite(actor.user_id(), &song_id)
         .await
@@ -121,6 +137,14 @@ pub async fn unmark_song_as_favourite(
     Query(song_id): Query<String>,
 ) -> CalibornResult<()> {
     let song_service = registry.song_service();
+    let user_service = registry.user_service();
+
+    user_service.get_user(actor.user_id()).await?;
+    user_service
+        .user_has_permission(actor.user_id(), PERM_USE_BOT)
+        .await?;
+    user_service.update_user_activity(actor.user_id()).await?;
+
     song_service
         .unmark_song_as_favourite(actor.user_id(), &song_id)
         .await
@@ -133,6 +157,14 @@ pub async fn mark_currently_playing_song_as_favourite(
     AuthenticatedUser(actor): AuthenticatedUser,
 ) -> CalibornResult<()> {
     let song_service = registry.song_service();
+    let user_service = registry.user_service();
+
+    user_service.get_user(actor.user_id()).await?;
+    user_service
+        .user_has_permission(actor.user_id(), PERM_USE_BOT)
+        .await?;
+    user_service.update_user_activity(actor.user_id()).await?;
+
     song_service
         .mark_currently_playing_song_as_favourite(actor.user_id())
         .await

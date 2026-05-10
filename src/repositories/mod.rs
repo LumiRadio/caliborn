@@ -1,20 +1,11 @@
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
-use cooldowns::{CooldownRepository, SeaOrmCooldownRepository};
-use sea_orm::{ConnectionTrait, DatabaseConnection};
-
-use crate::repositories::{
-    cans::{CanRepository, SeaOrmCanRepository},
-    favourite_songs::{FavouriteSongRepository, SeaOrmFavouriteSongRepository},
-    permissions::{PermissionRepository, SeaOrmPermissionRepository},
-    server_channel_config::{SeaOrmServerChannelConfigRepository, ServerChannelConfigRepository},
-    server_config::{SeaOrmServerConfigRepository, ServerConfigRepository},
-    song_history::{SeaOrmSongHistoryRepository, SongHistoryRepository},
-    song_requests::{SeaOrmSongRequestRepository, SongRequestRepository},
-    songs::{SeaOrmSongRepository, SongRepository},
-    tags::{SeaOrmTagRepository, TagRepository},
-    users::{SeaOrmUserRepository, UserRepository},
+use sea_orm::{
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DeleteMany, EntityTrait,
+    IntoActiveModel, PaginatorTrait, PrimaryKeyTrait, Select,
 };
+
+use crate::dtos::page::Page;
 
 pub mod cans;
 pub mod cooldowns;
@@ -98,6 +89,10 @@ impl ConnectionTrait for AlwaysCloneableConnection {
 /// An enum representing possible errors that can occur when interacting with a repository.
 #[derive(thiserror::Error, Debug)]
 pub enum RepositoryError {
+    /// The entity that should be updated didn't exist
+    #[error("The entity `{0}` with ID '{1}' does not exist to be updated")]
+    UpdateNotFound(String, String),
+
     /// An error occurred while interacting with the repository. This IS a bug.
     #[error(transparent)]
     Unexpected(#[from] DynError),
@@ -121,165 +116,265 @@ impl<E: std::error::Error + Send + Sync + 'static> From<sea_orm::TransactionErro
     }
 }
 
-/// A factory trait for creating repository instances.
-///
-/// This trait provides methods to create different types of repositories
-/// that are used throughout the application. Implementations of this trait
-/// are responsible for creating and configuring repository instances with
-/// the appropriate database connections or other dependencies.
-pub trait RepositoryFactory: Send + Sync + 'static {
-    /// Creates a new instance of a `CanRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `CanRepository` trait.
-    fn can_repository(&self) -> Box<dyn CanRepository>;
+#[async_trait::async_trait]
+pub trait ApplyQueryFilter<E>
+where
+    E: EntityTrait + Send + Sync,
+{
+    async fn apply(&self, query: Select<E>) -> Select<E>;
 
-    /// Creates a new instance of a `FavouriteSongRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `FavouriteSongRepository` trait.
-    fn favourite_song_repository(&self) -> Box<dyn FavouriteSongRepository>;
-
-    /// Creates a new instance of a `ServerChannelConfigRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `ServerChannelConfigRepository` trait.
-    fn server_channel_config_repository(&self) -> Box<dyn ServerChannelConfigRepository>;
-
-    /// Creates a new instance of a `SongRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `SongRepository` trait.
-    fn song_repository(&self) -> Box<dyn SongRepository>;
-
-    /// Creates a new instance of a `SongHistoryRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `SongHistoryRepository` trait.
-    fn song_history_repository(&self) -> Box<dyn SongHistoryRepository>;
-
-    /// Creates a new instance of a `SongRequestRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `SongRequestRepository` trait.
-    fn song_request_repository(&self) -> Box<dyn SongRequestRepository>;
-
-    /// Creates a new instance of a `TagRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `TagRepository` trait.
-    fn tag_repository(&self) -> Box<dyn TagRepository>;
-
-    /// Creates a new instance of a `TokenStorageRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `TokenStorageRepository` trait.
-    // Currently not in use
-    // fn token_storage_repository(&self) -> Box<dyn TokenStorageRepository>;
-
-    /// Creates a new instance of a `UserRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `UserRepository` trait.
-    fn user_repository(&self) -> Box<dyn UserRepository>;
-
-    /// Creates a new instance of a `ServerConfigRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `ServerConfigRepository` trait.
-    fn server_config_repository(&self) -> Box<dyn ServerConfigRepository>;
-
-    /// Creates a new instance of a `CooldownRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `CooldownRepository` trait.
-    fn cooldown_repository(&self) -> Box<dyn CooldownRepository>;
-
-    /// Creates a new instance of a `PermissionRepository`.
-    ///
-    /// # Returns
-    ///
-    /// A boxed trait object implementing the `PermissionRepository` trait.
-    fn permission_repository(&self) -> Box<dyn PermissionRepository>;
+    fn page_size(&self) -> u64 {
+        20
+    }
+    fn page(&self) -> u64 {
+        1
+    }
 }
 
-/// A SeaORM implementation of the `RepositoryFactory` trait.
-///
-/// This struct holds a database connection that is used to create
-/// SeaORM-based repository implementations.
-pub struct SeaOrmRepositoryFactory {
-    /// The database connection used by all repositories created by this factory.
+#[async_trait::async_trait]
+pub trait ApplyDeleteFilter<E>
+where
+    E: EntityTrait + Send + Sync,
+{
+    async fn apply_delete(&self, query: DeleteMany<E>) -> DeleteMany<E>;
+}
+
+pub trait ApplyUpdates<T> {
+    fn apply_to(self, target: &mut T);
+}
+
+pub struct BaseRepository<E> {
     db: AlwaysCloneableConnection,
+    _phantom: PhantomData<E>,
 }
 
-impl SeaOrmRepositoryFactory {
-    /// Creates a new instance of `SeaOrmRepositoryFactory`.
+impl<E> BaseRepository<E>
+where
+    E: EntityTrait + Send + Sync + Default,
+    E::Model: IntoActiveModel<E::ActiveModel> + Send + Sync,
+    E::ActiveModel: Send,
+{
+    pub fn new(db: &AlwaysCloneableConnection) -> Self {
+        Self {
+            db: db.clone(),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Browse entities with a given filter
     ///
     /// # Arguments
     ///
-    /// * `db` - A reference to a SeaORM database connection that will be cloned and stored.
+    /// * `filter` - The filter to apply to the query
     ///
     /// # Returns
     ///
-    /// A new instance of `SeaOrmRepositoryFactory`.
-    pub fn new(db: DatabaseConnection) -> Self {
-        Self { db: db.into() }
+    /// A `Result` containing a `Page` of entity models, or a `RepositoryError` if an error occurred
+    pub async fn browse<F>(&self, filter: F) -> Result<Page<E::Model>, RepositoryError>
+    where
+        F: ApplyQueryFilter<E>,
+    {
+        let base_query = E::find();
+        let filtered_query = filter.apply(base_query).await;
+
+        let paginator = filtered_query.paginate(&self.db, filter.page_size());
+        let items_and_pages = paginator.num_items_and_pages().await?;
+        let items = paginator.fetch_page(filter.page()).await?;
+
+        Ok(Page {
+            items,
+            page: filter.page(),
+            page_size: filter.page_size(),
+            total: items_and_pages.number_of_items,
+            total_pages: items_and_pages.number_of_pages,
+        })
+    }
+
+    /// Read an entity by its ID
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The ID of the entity to read
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing an `Option` of entity model, or a `RepositoryError` if an error occurred
+    pub async fn read<T>(&self, id: T) -> Result<Option<E::Model>, RepositoryError>
+    where
+        T: Into<<E::PrimaryKey as PrimaryKeyTrait>::ValueType> + Send,
+    {
+        E::find_by_id(id).one(&self.db).await.map_err(Into::into)
+    }
+
+    /// Read an entity by a given filter
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - The filter to apply to the query
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing an `Option` of entity model, or a `RepositoryError` if an error occurred
+    pub async fn read_by<F>(&self, filter: F) -> Result<Option<E::Model>, RepositoryError>
+    where
+        F: ApplyQueryFilter<E>,
+    {
+        let base_query = E::find();
+        let filtered_query = filter.apply(base_query).await;
+
+        filtered_query.one(&self.db).await.map_err(Into::into)
+    }
+
+    /// Edit an entity by its ID
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The ID of the entity to edit
+    /// * `updates` - The updates to apply to the entity
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the updated entity model, or a `RepositoryError` if an error occurred
+    pub async fn edit<T, U>(&self, id: T, updates: U) -> Result<E::Model, RepositoryError>
+    where
+        T: Into<<E::PrimaryKey as PrimaryKeyTrait>::ValueType> + ToString + Send,
+        U: ApplyUpdates<E::ActiveModel>,
+    {
+        let id_str = id.to_string();
+        let existing: E::Model = self.read(id).await?.ok_or(RepositoryError::UpdateNotFound(
+            E::default().as_str().to_string(),
+            id_str,
+        ))?;
+
+        let mut active_model: E::ActiveModel = existing.into_active_model();
+        updates.apply_to(&mut active_model);
+
+        active_model.update(&self.db).await.map_err(Into::into)
+    }
+
+    /// Add a new entity
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The data to insert into the entity
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the inserted entity model, or a `RepositoryError` if an error occurred
+    pub async fn add<D>(&self, data: D) -> Result<E::Model, RepositoryError>
+    where
+        D: IntoActiveModel<E::ActiveModel> + Send,
+    {
+        let active_model: E::ActiveModel = data.into_active_model();
+        active_model.insert(&self.db).await.map_err(Into::into)
+    }
+
+    pub async fn delete<T>(&self, id: T) -> Result<(), RepositoryError>
+    where
+        T: Into<<E::PrimaryKey as PrimaryKeyTrait>::ValueType> + Send,
+    {
+        E::delete_by_id(id).exec(&self.db).await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_by<F>(&self, filter: F) -> Result<(), RepositoryError>
+    where
+        F: ApplyDeleteFilter<E>,
+    {
+        let base_query = E::delete_many();
+        let filtered_query = filter.apply_delete(base_query).await;
+
+        filtered_query.exec(&self.db).await?;
+
+        Ok(())
     }
 }
 
-impl RepositoryFactory for SeaOrmRepositoryFactory {
-    fn can_repository(&self) -> Box<dyn CanRepository> {
-        Box::new(SeaOrmCanRepository::new(&self.db))
-    }
+/// Macro to generate common DTOs for an entity
+///
+/// # Usage
+/// ```rust
+/// generate_dtos!(
+///     entities::cans::Entity,
+///     CreateCanDto {
+///         user_id: i64 => added_by,
+///         legit: bool,
+///     },
+///     UpdateCanDto {
+///         legit: Option<bool>,
+///     }
+/// );
+/// ```
+#[macro_export]
+macro_rules! generate_dtos {
+    (
+        $entity:ty,
+        $create_name:ident {
+            $($create_field:ident: $create_type:ty $(=> $create_column:ident)?),* $(,)?
+        }
+    ) => {
+        #[derive(Debug, Clone)]
+        pub struct $create_name {
+            $(pub $create_field: $create_type,)*
+        }
 
-    fn favourite_song_repository(&self) -> Box<dyn FavouriteSongRepository> {
-        Box::new(SeaOrmFavouriteSongRepository::new(&self.db))
-    }
+        impl sea_orm::IntoActiveModel<<$entity as sea_orm::EntityTrait>::ActiveModel> for $create_name {
+            fn into_active_model(self) -> <$entity as sea_orm::EntityTrait>::ActiveModel {
+                let mut active_model = <<$entity as sea_orm::EntityTrait>::ActiveModel as Default>::default();
 
-    fn server_channel_config_repository(&self) -> Box<dyn ServerChannelConfigRepository> {
-        Box::new(SeaOrmServerChannelConfigRepository::new(&self.db))
-    }
+                $(
+                    generate_dtos!(@set_create_field active_model, self.$create_field, $($create_column)?, $create_field);
+                )*
 
-    fn song_repository(&self) -> Box<dyn SongRepository> {
-        Box::new(SeaOrmSongRepository::new(&self.db))
-    }
+                active_model
+            }
+        }
+    };
+    (
+        $entity:ty,
+        $create_name:ident {
+            $($create_field:ident: $create_type:ty $(=> $create_column:ident)?),* $(,)?
+        },
+        $update_name:ident {
+            $($update_field:ident: $update_type:ty $(=> $update_column:ident)?),* $(,)?
+        }
+    ) => {
+        generate_dtos!($entity, $create_name {
+            $($create_field: $create_type $(=> $create_column)?),*
+        });
 
-    fn song_history_repository(&self) -> Box<dyn SongHistoryRepository> {
-        Box::new(SeaOrmSongHistoryRepository::new(&self.db))
-    }
+        #[derive(Debug, Clone, Default)]
+        pub struct $update_name {
+            $(pub $update_field: $update_type,)*
+        }
 
-    fn song_request_repository(&self) -> Box<dyn SongRequestRepository> {
-        Box::new(SeaOrmSongRequestRepository::new(&self.db))
-    }
+        impl crate::repositories::ApplyUpdates<<$entity as sea_orm::EntityTrait>::ActiveModel> for $update_name {
+            fn apply_to(self, active_model: &mut <$entity as sea_orm::EntityTrait>::ActiveModel) {
+                $(
+                    generate_dtos!(@set_update_field active_model, self.$update_field, $($update_column)?, $update_field);
+                )*
+            }
+        }
+    };
 
-    fn tag_repository(&self) -> Box<dyn TagRepository> {
-        Box::new(SeaOrmTagRepository::new(&self.db))
-    }
+    (@set_create_field $active_model:ident, $value:expr, $column:ident, $field:ident) => {
+        $active_model.$column = sea_orm::ActiveValue::set($value);
+    };
 
-    fn user_repository(&self) -> Box<dyn UserRepository> {
-        Box::new(SeaOrmUserRepository::new(&self.db))
-    }
+    (@set_create_field $active_model:ident, $value:expr, , $field:ident) => {
+        $active_model.$field = sea_orm::ActiveValue::set($value);
+    };
 
-    fn server_config_repository(&self) -> Box<dyn ServerConfigRepository> {
-        Box::new(SeaOrmServerConfigRepository::new(&self.db))
-    }
+    (@set_update_field $active_model:ident, $value:expr, $column:ident, $field:ident) => {
+        if let Some(val) = $value {
+            $active_model.$column = sea_orm::ActiveValue::set(val);
+        }
+    };
 
-    fn cooldown_repository(&self) -> Box<dyn CooldownRepository> {
-        Box::new(SeaOrmCooldownRepository::new(&self.db))
-    }
-
-    fn permission_repository(&self) -> Box<dyn PermissionRepository> {
-        Box::new(SeaOrmPermissionRepository::new(&self.db))
-    }
+    (@set_update_field $active_model:ident, $value:expr, , $field:ident) => {
+        if let Some(val) = $value {
+            $active_model.$field = sea_orm::ActiveValue::set(val);
+        }
+    };
 }

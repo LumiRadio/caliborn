@@ -10,7 +10,11 @@ impl MigrationTrait for Migration {
 
         let (sql, values) = sea_query::Query::insert()
             .into_table(Permissions::Table)
-            .columns([Permissions::Name, Permissions::Description])
+            .columns([
+                Permissions::Name,
+                Permissions::Description,
+                Permissions::BuiltIn,
+            ])
             .values_panic(shared_constants::permissions::PERM_MANAGE_USERS)
             .values_panic(shared_constants::permissions::PERM_USE_MINIGAMES)
             .values_panic(shared_constants::permissions::PERM_USE_WEB_CHAT)
@@ -39,4 +43,5 @@ enum Permissions {
     Table,
     Name,
     Description,
+    BuiltIn,
 }

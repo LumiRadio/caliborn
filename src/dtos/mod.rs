@@ -34,7 +34,9 @@ use axum::{extract::FromRequest, response::IntoResponse};
 use axum_macros::FromRequestParts;
 use error::ApiError;
 use reqwest::StatusCode;
-use serde::{Serialize, de::DeserializeOwned};
+use sea_query::Nullable;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use utoipa::IntoParams;
 
 use crate::dtos::error::CalibornResult;
 
@@ -212,5 +214,65 @@ pub struct Query<T>(pub T);
 impl<T: Serialize> IntoResponse for Json<T> {
     fn into_response(self) -> axum::response::Response {
         axum::Json(self.0).into_response()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Patch<T> {
+    Missing,
+    None,
+    Value(T),
+}
+
+impl<T> Default for Patch<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<T> From<Option<T>> for Patch<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(v) => Patch::Value(v),
+            None => Patch::None,
+        }
+    }
+}
+
+impl<T> From<Patch<T>> for sea_orm::ActiveValue<Option<T>>
+where
+    T: Into<sea_orm::Value> + Nullable,
+{
+    fn from(value: Patch<T>) -> Self {
+        match value {
+            Patch::Missing => sea_orm::ActiveValue::not_set(),
+            Patch::None => sea_orm::ActiveValue::set(None),
+            Patch::Value(v) => sea_orm::ActiveValue::set(Some(v)),
+        }
+    }
+}
+
+impl<T> From<Patch<T>> for sea_orm::ActiveValue<T>
+where
+    T: Into<sea_orm::Value>,
+{
+    fn from(value: Patch<T>) -> Self {
+        match value {
+            Patch::Missing => sea_orm::ActiveValue::not_set(),
+            Patch::None => sea_orm::ActiveValue::not_set(),
+            Patch::Value(v) => sea_orm::ActiveValue::set(v),
+        }
+    }
+}
+
+impl<'de, T> Deserialize<'de> for Patch<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Option::deserialize(deserializer).map(Into::into)
     }
 }

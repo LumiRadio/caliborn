@@ -4,17 +4,20 @@ use reqwest::{StatusCode, header::RETRY_AFTER};
 use tokio::sync::Mutex;
 
 use crate::{
-    RepositoryError,
+    RepositoryError, ServiceRegistry,
     dtos::{
         error::{PublicError, ToPublicError},
         page::{Page, PaginationParams},
         songs::{CooldownInfo, SearchParams, SongDto, SongWithCooldownInfo},
     },
+    entities,
     liquidsoap::{LiquidsoapClient, LiquidsoapError, QueueItem},
     repositories::{
-        favourite_songs::FavouriteSongRepository, song_history::SongHistoryRepository,
-        song_requests::SongRequestRepository, songs::SongRepository, tags::TagRepository,
-        users::UserRepository,
+        AlwaysCloneableConnection, BaseRepository,
+        favourite_songs::{CreateFavouriteSongDto, FavouriteSongRepositoryExt},
+        song_history::SongHistoryRepositoryExt,
+        song_requests::CreateSongRequestDto,
+        songs::{SongFilter, SongRepositoryExt},
     },
     services::{cooldowns::CooldownService, users::UserService},
 };
@@ -98,91 +101,42 @@ impl ToPublicError for SongServiceError {
     }
 }
 
-#[async_trait::async_trait]
-pub trait SongService: Send + Sync + 'static {
-    async fn request_song(
-        &self,
-        user_id: UserId,
-        file_hash: &str,
-    ) -> Result<SongWithCooldownInfo, SongServiceError>;
-    async fn get_request_queue(&self) -> Result<Vec<SongDto>, SongServiceError>;
-    async fn get_song_history(
-        &self,
-        pagination: &PaginationParams,
-    ) -> Result<Page<SongDto>, SongServiceError>;
-    async fn search_song(
-        &self,
-        params: &SearchParams,
-        pagination: &PaginationParams,
-    ) -> Result<Page<SongDto>, SongServiceError>;
-    async fn search_favourite_songs(
-        &self,
-        user_id: UserId,
-        params: &SearchParams,
-        pagination: &PaginationParams,
-    ) -> Result<Page<SongDto>, SongServiceError>;
-    async fn get_currently_playing_song(&self) -> Result<SongDto, SongServiceError>;
-    async fn mark_song_as_favourite(
-        &self,
-        user_id: UserId,
-        song_id: &str,
-    ) -> Result<(), SongServiceError>;
-    async fn unmark_song_as_favourite(
-        &self,
-        user_id: UserId,
-        song_id: &str,
-    ) -> Result<(), SongServiceError>;
-    async fn mark_currently_playing_song_as_favourite(
-        &self,
-        user_id: UserId,
-    ) -> Result<(), SongServiceError>;
-}
-
-pub struct SongServiceImpl {
+pub struct SongService {
     // repositories
-    song_repo: Box<dyn SongRepository>,
-    user_repo: Box<dyn UserRepository>,
-    song_request_repo: Box<dyn SongRequestRepository>,
-    song_history_repo: Box<dyn SongHistoryRepository>,
-    favourite_song_repo: Box<dyn FavouriteSongRepository>,
-    tags_repo: Box<dyn TagRepository>,
+    song_repo: BaseRepository<entities::songs::Entity>,
+    user_repo: BaseRepository<entities::users::Entity>,
+    song_request_repo: BaseRepository<entities::song_requests::Entity>,
+    song_history_repo: BaseRepository<entities::played_songs::Entity>,
+    favourite_song_repo: BaseRepository<entities::favourite_songs::Entity>,
+    tags_repo: BaseRepository<entities::song_tags::Entity>,
 
     // services
-    user_service: Arc<dyn UserService>,
-    cooldown_service: Arc<dyn CooldownService>,
+    user_service: Arc<UserService>,
+    cooldown_service: Arc<CooldownService>,
 
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
 }
 
-impl SongServiceImpl {
+impl SongService {
     pub fn new(
-        song_repo: Box<dyn SongRepository>,
-        user_repo: Box<dyn UserRepository>,
-        song_request_repo: Box<dyn SongRequestRepository>,
-        song_history_repo: Box<dyn SongHistoryRepository>,
-        favourite_song_repo: Box<dyn FavouriteSongRepository>,
-        tags_repo: Box<dyn TagRepository>,
-        user_service: Arc<dyn UserService>,
-        cooldown_service: Arc<dyn CooldownService>,
+        db: &AlwaysCloneableConnection,
+        registry: &ServiceRegistry,
         liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     ) -> Self {
         Self {
-            song_repo,
-            user_repo,
-            song_request_repo,
-            song_history_repo,
-            favourite_song_repo,
-            tags_repo,
-            user_service,
-            cooldown_service,
+            song_repo: BaseRepository::new(db),
+            user_repo: BaseRepository::new(db),
+            song_request_repo: BaseRepository::new(db),
+            song_history_repo: BaseRepository::new(db),
+            favourite_song_repo: BaseRepository::new(db),
+            tags_repo: BaseRepository::new(db),
+            user_service: registry.user_service(),
+            cooldown_service: registry.cooldown_service(),
             liquidsoap_client,
         }
     }
-}
 
-#[async_trait::async_trait]
-impl SongService for SongServiceImpl {
-    async fn request_song(
+    pub async fn request_song(
         &self,
         user_id: UserId,
         file_hash: &str,
@@ -214,8 +168,8 @@ impl SongService for SongServiceImpl {
         };
 
         // check if the song requested is already playing
-        let currently_playing = self.song_history_repo.recent_plays(1).await?;
-        if let Some(playing) = currently_playing.iter().find(|p| p.song_id == file_hash) {
+        let currently_playing = self.song_history_repo.get_playing().await?;
+        if let Some(playing) = currently_playing.filter(|p| p.song_id == file_hash) {
             let now = chrono::Utc::now().naive_utc();
             let elapsed = now - playing.played_at;
             let left = song.duration.round() as i64 - elapsed.num_seconds();
@@ -243,7 +197,10 @@ impl SongService for SongServiceImpl {
         }
 
         self.song_request_repo
-            .request_song(file_hash, user_id.into())
+            .add(CreateSongRequestDto {
+                song_id: file_hash.to_string(),
+                user_id: user_id.into(),
+            })
             .await?;
 
         let now = chrono::Utc::now().naive_utc();
@@ -259,7 +216,7 @@ impl SongService for SongServiceImpl {
         Ok(song)
     }
 
-    async fn get_request_queue(&self) -> Result<Vec<SongDto>, SongServiceError> {
+    pub async fn get_request_queue(&self) -> Result<Vec<SongDto>, SongServiceError> {
         let mut client = self.liquidsoap_client.lock().await;
         let response = client.command("song_request_queue").await?;
 
@@ -267,7 +224,7 @@ impl SongService for SongServiceImpl {
         let mut songs = Vec::new();
 
         for item in queue {
-            let song = self.song_repo.find_by_path(&item.filename).await?;
+            let song = self.song_repo.read(&item.filename).await?;
             let Some(song) = song else {
                 continue;
             };
@@ -277,7 +234,7 @@ impl SongService for SongServiceImpl {
         Ok(songs)
     }
 
-    async fn get_song_history(
+    pub async fn get_song_history(
         &self,
         pagination: &PaginationParams,
     ) -> Result<Page<SongDto>, SongServiceError> {
@@ -288,35 +245,68 @@ impl SongService for SongServiceImpl {
             .map(|page| page.map(|song| song.into()))
     }
 
-    async fn search_song(
+    pub async fn search_song(
         &self,
         params: &SearchParams,
         pagination: &PaginationParams,
     ) -> Result<Page<SongDto>, SongServiceError> {
+        let mut filter = SongFilter::new()
+            .search(&params.query)
+            .page(pagination.page)
+            .page_size(pagination.page_size);
+        if let Some(artist) = &params.artist {
+            filter = filter.artist(artist);
+        }
+
+        if let Some(album) = &params.album {
+            filter = filter.album(album);
+        }
+
+        if let Some(title) = &params.title {
+            filter = filter.title(title);
+        }
+
         self.song_repo
-            .search(params, pagination)
+            .browse(filter)
             .await
             .map_err(Into::into)
             .map(|page| page.map(|song| song.into()))
     }
 
-    async fn search_favourite_songs(
+    pub async fn search_favourite_songs(
         &self,
         user_id: UserId,
         params: &SearchParams,
         pagination: &PaginationParams,
     ) -> Result<Page<SongDto>, SongServiceError> {
+        let mut filter = SongFilter::new()
+            .search(&params.query)
+            .page(pagination.page)
+            .page_size(pagination.page_size)
+            .favourited_by(user_id.into());
+        if let Some(artist) = &params.artist {
+            filter = filter.artist(artist);
+        }
+
+        if let Some(album) = &params.album {
+            filter = filter.album(album);
+        }
+
+        if let Some(title) = &params.title {
+            filter = filter.title(title);
+        }
+
         self.song_repo
-            .search_favourite_songs(user_id.into(), params, pagination)
+            .browse(filter)
             .await
             .map_err(Into::into)
             .map(|page| page.map(|song| song.into()))
     }
 
-    async fn get_currently_playing_song(&self) -> Result<SongDto, SongServiceError> {
-        let played = self.song_history_repo.recent_plays(1).await?;
+    pub async fn get_currently_playing_song(&self) -> Result<SongDto, SongServiceError> {
+        let played = self.song_history_repo.get_playing().await?;
 
-        if let Some(playing) = played.first() {
+        if let Some(playing) = played {
             self.song_repo
                 .find_by_hash(&playing.song_id)
                 .await
@@ -330,7 +320,7 @@ impl SongService for SongServiceImpl {
         }
     }
 
-    async fn mark_song_as_favourite(
+    pub async fn mark_song_as_favourite(
         &self,
         user_id: UserId,
         song_id: &str,
@@ -344,12 +334,16 @@ impl SongService for SongServiceImpl {
         }
 
         self.favourite_song_repo
-            .insert(user_id.into(), song_id)
+            .add(CreateFavouriteSongDto {
+                user_id: user_id.into(),
+                song_id: song_id.to_string(),
+            })
             .await
             .map_err(Into::into)
+            .map(|_| ())
     }
 
-    async fn unmark_song_as_favourite(
+    pub async fn unmark_song_as_favourite(
         &self,
         user_id: UserId,
         song_id: &str,
@@ -363,12 +357,12 @@ impl SongService for SongServiceImpl {
         }
 
         self.favourite_song_repo
-            .delete(user_id.into(), song_id)
+            .remove_by_user_song(user_id.into(), song_id)
             .await
             .map_err(Into::into)
     }
 
-    async fn mark_currently_playing_song_as_favourite(
+    pub async fn mark_currently_playing_song_as_favourite(
         &self,
         user_id: UserId,
     ) -> Result<(), SongServiceError> {
@@ -383,8 +377,12 @@ impl SongService for SongServiceImpl {
         }
 
         self.favourite_song_repo
-            .insert(user_id.into(), &song.id)
+            .add(CreateFavouriteSongDto {
+                user_id: user_id.into(),
+                song_id: song.id,
+            })
             .await
             .map_err(Into::into)
+            .map(|_| ())
     }
 }

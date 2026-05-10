@@ -1,5 +1,7 @@
 /// Authentication routes
 pub mod auth;
+/// Bear routes
+pub mod bears;
 /// Can routes
 pub mod cans;
 /// Song routes

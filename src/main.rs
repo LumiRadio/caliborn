@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use caliborn::{LiquidsoapClientImpl, LiquidsoapError, SeaOrmRepositoryFactory};
+use caliborn::{LiquidsoapClientImpl, LiquidsoapError};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use tokio::sync::Mutex;
@@ -47,7 +47,7 @@ async fn async_main(config: Config) -> Result<(), ApplicationError> {
         secret,
         hmac_secret,
         oauth_client,
-        Arc::new(SeaOrmRepositoryFactory::new(db)),
+        db.into(),
         Arc::new(Mutex::new(liquidsoap_client)),
     );
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")

@@ -1,81 +1,94 @@
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DeleteMany, EntityTrait, PaginatorTrait, QueryFilter, Select};
 
 use crate::{
-    RepositoryError,
-    dtos::page::{Page, PaginationParams},
-    entities,
-    repositories::AlwaysCloneableConnection,
+    RepositoryError, entities, generate_dtos,
+    repositories::{ApplyDeleteFilter, ApplyQueryFilter, BaseRepository},
 };
 
 #[async_trait::async_trait]
-pub trait FavouriteSongRepository: Send + Sync + 'static {
-    async fn insert(&self, user_id: i64, song_id: &str) -> Result<(), RepositoryError>;
-    async fn delete(&self, user_id: i64, song_id: &str) -> Result<(), RepositoryError>;
-    async fn get(
-        &self,
-        user_id: i64,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::favourite_songs::Model>, RepositoryError>;
+pub trait FavouriteSongRepositoryExt: Send + Sync + 'static {
     async fn is_favourited(&self, user_id: i64, song_id: &str) -> Result<bool, RepositoryError>;
+
+    async fn remove_by_user_song(&self, user_id: i64, song_id: &str)
+    -> Result<(), RepositoryError>;
 }
 
-pub struct SeaOrmFavouriteSongRepository {
-    db: AlwaysCloneableConnection,
+generate_dtos!(
+    entities::favourite_songs::Entity,
+    CreateFavouriteSongDto {
+        user_id: i64,
+        song_id: String,
+    },
+    UpdateFavouriteSongDto {
+        user_id: Option<i64>,
+        song_id: Option<String>,
+    }
+);
+
+#[derive(Default)]
+pub struct FavouriteSongFilter {
+    user_id: Option<i64>,
+    song_id: Option<String>,
+    page: Option<u64>,
+    page_size: Option<u64>,
 }
 
-impl SeaOrmFavouriteSongRepository {
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
+#[derive(Default)]
+pub struct FavouriteSongDeleteFilter {
+    user_id: Option<i64>,
+    song_id: Option<String>,
+}
+
+#[async_trait::async_trait]
+impl ApplyQueryFilter<entities::favourite_songs::Entity> for FavouriteSongFilter {
+    async fn apply(
+        &self,
+        query: Select<entities::favourite_songs::Entity>,
+    ) -> Select<entities::favourite_songs::Entity> {
+        let mut query = query;
+
+        if let Some(user_id) = self.user_id {
+            query = query.filter(entities::favourite_songs::Column::UserId.eq(user_id));
+        }
+
+        if let Some(song_id) = &self.song_id {
+            query = query.filter(entities::favourite_songs::Column::SongId.eq(song_id));
+        }
+
+        query
+    }
+
+    fn page_size(&self) -> u64 {
+        self.page_size.unwrap_or(20)
+    }
+
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
     }
 }
 
 #[async_trait::async_trait]
-impl FavouriteSongRepository for SeaOrmFavouriteSongRepository {
-    async fn insert(&self, user_id: i64, song_id: &str) -> Result<(), RepositoryError> {
-        entities::favourite_songs::ActiveModel {
-            user_id: sea_orm::ActiveValue::Set(user_id),
-            song_id: sea_orm::ActiveValue::Set(song_id.to_string()),
-            ..Default::default()
-        }
-        .insert(&self.db)
-        .await
-        .map_err(RepositoryError::from)
-        .map(|_model| ())
-    }
-
-    async fn delete(&self, user_id: i64, song_id: &str) -> Result<(), RepositoryError> {
-        entities::favourite_songs::Entity::delete(entities::favourite_songs::ActiveModel {
-            user_id: sea_orm::ActiveValue::Set(user_id),
-            song_id: sea_orm::ActiveValue::Set(song_id.to_string()),
-            ..Default::default()
-        })
-        .exec(&self.db)
-        .await
-        .map_err(RepositoryError::from)
-        .map(|_model| ())
-    }
-
-    async fn get(
+impl ApplyDeleteFilter<entities::favourite_songs::Entity> for FavouriteSongDeleteFilter {
+    async fn apply_delete(
         &self,
-        user_id: i64,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::favourite_songs::Model>, RepositoryError> {
-        let paginator = entities::favourite_songs::Entity::find()
-            .filter(entities::favourite_songs::Column::UserId.eq(user_id))
-            .paginate(&self.db, pagination.page_size);
+        query: DeleteMany<entities::favourite_songs::Entity>,
+    ) -> DeleteMany<entities::favourite_songs::Entity> {
+        let mut query = query;
 
-        let page = paginator.fetch_page(pagination.page).await?;
-        let total = paginator.num_items_and_pages().await?;
+        if let Some(user_id) = self.user_id {
+            query = query.filter(entities::favourite_songs::Column::UserId.eq(user_id));
+        }
 
-        Ok(Page::new(
-            page,
-            total.number_of_items,
-            pagination.page,
-            pagination.page_size,
-            total.number_of_pages,
-        ))
+        if let Some(song_id) = &self.song_id {
+            query = query.filter(entities::favourite_songs::Column::SongId.eq(song_id));
+        }
+
+        query
     }
+}
 
+#[async_trait::async_trait]
+impl FavouriteSongRepositoryExt for BaseRepository<entities::favourite_songs::Entity> {
     async fn is_favourited(&self, user_id: i64, song_id: &str) -> Result<bool, RepositoryError> {
         entities::favourite_songs::Entity::find()
             .filter(entities::favourite_songs::Column::UserId.eq(user_id))
@@ -84,5 +97,19 @@ impl FavouriteSongRepository for SeaOrmFavouriteSongRepository {
             .await
             .map_err(RepositoryError::from)
             .map(|count| count > 0)
+    }
+
+    async fn remove_by_user_song(
+        &self,
+        user_id: i64,
+        song_id: &str,
+    ) -> Result<(), RepositoryError> {
+        self.delete_by(FavouriteSongDeleteFilter {
+            user_id: Some(user_id),
+            song_id: Some(song_id.to_string()),
+        })
+        .await?;
+
+        Ok(()).map(|_| ())
     }
 }

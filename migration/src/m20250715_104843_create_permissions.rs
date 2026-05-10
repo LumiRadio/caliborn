@@ -13,6 +13,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(string(Permissions::Name).primary_key())
                     .col(string(Permissions::Description))
+                    .col(boolean(Permissions::BuiltIn))
                     .to_owned(),
             )
             .await
@@ -30,4 +31,5 @@ enum Permissions {
     Table,
     Name,
     Description,
+    BuiltIn,
 }

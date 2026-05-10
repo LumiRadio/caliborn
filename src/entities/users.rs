@@ -15,6 +15,7 @@ pub struct Model {
     pub last_message_sent: Option<DateTime>,
     pub migrated: bool,
     pub username: Option<String>,
+    pub role: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -27,10 +28,16 @@ pub enum Relation {
     ConnectedYoutubeAccounts,
     #[sea_orm(has_many = "super::favourite_songs::Entity")]
     FavouriteSongs,
+    #[sea_orm(
+        belongs_to = "super::roles::Entity",
+        from = "Column::Role",
+        to = "super::roles::Column::Name",
+        on_update = "NoAction",
+        on_delete = "SetDefault"
+    )]
+    Roles,
     #[sea_orm(has_many = "super::user_permissions::Entity")]
     UserPermissions,
-    #[sea_orm(has_many = "super::user_roles::Entity")]
-    UserRoles,
 }
 
 impl Related<super::api_keys::Entity> for Entity {
@@ -57,15 +64,15 @@ impl Related<super::favourite_songs::Entity> for Entity {
     }
 }
 
-impl Related<super::user_permissions::Entity> for Entity {
+impl Related<super::roles::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserPermissions.def()
+        Relation::Roles.def()
     }
 }
 
-impl Related<super::user_roles::Entity> for Entity {
+impl Related<super::user_permissions::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserRoles.def()
+        Relation::UserPermissions.def()
     }
 }
 
@@ -75,15 +82,6 @@ impl Related<super::permissions::Entity> for Entity {
     }
     fn via() -> Option<RelationDef> {
         Some(super::user_permissions::Relation::Users.def().rev())
-    }
-}
-
-impl Related<super::roles::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::user_roles::Relation::Roles.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_roles::Relation::Users.def().rev())
     }
 }
 

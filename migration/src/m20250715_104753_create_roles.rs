@@ -13,6 +13,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(string(Roles::Name).primary_key())
                     .col(string(Roles::Description))
+                    .col(boolean(Roles::BuiltIn))
                     .to_owned(),
             )
             .await
@@ -30,4 +31,5 @@ enum Roles {
     Table,
     Name,
     Description,
+    BuiltIn,
 }

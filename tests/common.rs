@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use caliborn::{
-    DiscordOAuthClient, SeaOrmRepositoryFactory, build_oauth2_client, liquidsoap::LiquidsoapClient,
-};
+use caliborn::{DiscordOAuthClient, build_oauth2_client, liquidsoap::LiquidsoapClient};
 use hmac::{Hmac, Mac};
 use migration::MigratorTrait;
 use rstest::fixture;
@@ -108,13 +106,7 @@ pub async fn app(
 ) -> (axum::Router, ContainerAsync<Postgres>) {
     let (db, container) = db.await;
     (
-        caliborn::make_app(
-            secret,
-            hmac_secret,
-            discord_client,
-            Arc::new(SeaOrmRepositoryFactory::new(db)),
-            liquidsoap,
-        ),
+        caliborn::make_app(secret, hmac_secret, discord_client, db.into(), liquidsoap),
         container,
     )
 }

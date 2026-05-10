@@ -42,16 +42,12 @@ impl Modify for UserApiKeyAddon {
 #[derive(OpenApi)]
 #[openapi(
     modifiers(&DiscordAuthAddon, &UserApiKeyAddon),
-    servers(
-        (url = "https://api.lumirad.io", description = "Live radio server"),
-        (url = "http://localhost:{port}", description = "Local development server",
-            variables(
-                ("port" = (default = "8000", description = "Port number"))
-            )
-        )
-    ),
     paths(
-        crate::routes::auth::discord_login
+        crate::routes::auth::discord_login,
+        crate::routes::bears::add_bear,
+        crate::routes::bears::get_bear_count,
+        crate::routes::cans::add_can,
+        crate::routes::cans::get_can_count,
     )
 )]
 pub struct ApiDoc;

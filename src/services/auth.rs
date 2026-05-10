@@ -22,7 +22,10 @@ use crate::{
         auth::{ApiKeyDto, UserToken},
         error::{ApiError, PublicError, ToPublicError},
     },
-    repositories::{RepositoryError, users::UserRepository},
+    entities,
+    repositories::{
+        AlwaysCloneableConnection, BaseRepository, RepositoryError, users::UserRepositoryExt,
+    },
 };
 
 use super::UserId;
@@ -118,28 +121,8 @@ impl ToPublicError for AuthServiceError {
     }
 }
 
-#[async_trait::async_trait]
-pub trait AuthService: Send + Sync + 'static {
-    async fn login_user(&self, code: &str) -> Result<UserToken, AuthServiceError>;
-    fn verify_token(&self, token: &str) -> Result<Claims, AuthServiceError>;
-    async fn create_api_key(
-        &self,
-        user_id: UserId,
-        description: &str,
-    ) -> Result<ApiKeyDto, AuthServiceError>;
-    async fn check_api_key(&self, api_key: &str) -> Result<i64, AuthServiceError>;
-    fn verify_hmac(
-        &self,
-        body: &[u8],
-        signature: &[u8],
-        timestamp: &str,
-        method: &str,
-        path: &str,
-    ) -> Result<(), AuthServiceError>;
-}
-
-pub struct AuthServiceImpl {
-    user_repo: Box<dyn UserRepository>,
+pub struct AuthService {
+    user_repo: BaseRepository<entities::users::Entity>,
     oauth_client: DiscordOAuthClient,
     jwt_secret: Hmac<Sha256>,
     hmac_secret: Hmac<Sha256>,
@@ -147,9 +130,9 @@ pub struct AuthServiceImpl {
     key_generator: PakControllerOsSha256,
 }
 
-impl AuthServiceImpl {
+impl AuthService {
     pub fn new(
-        user_repo: Box<dyn UserRepository>,
+        db: &AlwaysCloneableConnection,
         oauth_client: DiscordOAuthClient,
         jwt_secret: Hmac<Sha256>,
         hmac_secret: Hmac<Sha256>,
@@ -166,7 +149,7 @@ impl AuthServiceImpl {
             .unwrap();
 
         Self {
-            user_repo,
+            user_repo: BaseRepository::new(db),
             oauth_client,
             jwt_secret,
             hmac_secret,
@@ -174,11 +157,8 @@ impl AuthServiceImpl {
             key_generator,
         }
     }
-}
 
-#[async_trait::async_trait]
-impl AuthService for AuthServiceImpl {
-    async fn login_user(&self, code: &str) -> Result<UserToken, AuthServiceError> {
+    pub async fn login_user(&self, code: &str) -> Result<UserToken, AuthServiceError> {
         let token_response = self
             .oauth_client
             .exchange_code(AuthorizationCode::new(code.to_string()))
@@ -218,11 +198,11 @@ impl AuthService for AuthServiceImpl {
         })
     }
 
-    fn verify_token(&self, token: &str) -> Result<Claims, AuthServiceError> {
+    pub fn verify_token(&self, token: &str) -> Result<Claims, AuthServiceError> {
         Claims::verify(token, &self.jwt_secret).map_err(|_| AuthServiceError::InvalidJwtToken)
     }
 
-    async fn create_api_key(
+    pub async fn create_api_key(
         &self,
         user_id: UserId,
         description: &str,
@@ -240,7 +220,7 @@ impl AuthService for AuthServiceImpl {
         })
     }
 
-    async fn check_api_key(&self, api_key: &str) -> Result<i64, AuthServiceError> {
+    pub async fn check_api_key(&self, api_key: &str) -> Result<i64, AuthServiceError> {
         let pak: PrefixedApiKey = api_key
             .try_into()
             .map_err(|_| AuthServiceError::InvalidApiKey)?;
@@ -257,7 +237,7 @@ impl AuthService for AuthServiceImpl {
         }
     }
 
-    fn verify_hmac(
+    pub fn verify_hmac(
         &self,
         body: &[u8],
         signature: &[u8],
@@ -276,7 +256,7 @@ impl AuthService for AuthServiceImpl {
         }
 
         let body_hash = hex::encode(Sha256::digest(&body));
-        let canonical = format!("{}\n{}\n{}\n{}", method, path, body_hash, timestamp,);
+        let canonical = format!("{}\n{}\n{}\n{}", method, path, body_hash, timestamp);
 
         let mut mac = self.hmac_secret.clone();
         mac.update(canonical.as_bytes());

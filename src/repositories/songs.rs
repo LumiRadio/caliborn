@@ -1,38 +1,16 @@
 use sea_orm::{QueryOrder, QuerySelect, prelude::*};
-use sea_query::extension::postgres::PgExpr;
 
 use crate::{
-    dtos::{
-        page::{Page, PaginationParams},
-        songs::SearchParams,
-    },
-    entities,
+    dtos::page::{Page, PaginationParams},
+    entities, generate_dtos,
     pg_extension::TsQueryTrait,
-    repositories::{AlwaysCloneableConnection, RepositoryError},
+    repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
+    vectorizer::to_tsvector,
 };
 
 /// A trait representing a repository for songs.
 #[async_trait::async_trait]
-pub trait SongRepository: Send + Sync + 'static {
-    /// Insert a new song into the database.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while inserting the
-    /// song.
-    async fn insert(
-        &self,
-        song: entities::songs::ActiveModel,
-    ) -> Result<entities::songs::Model, RepositoryError>;
-
-    /// Delete a song by its file path.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while deleting the
-    /// song.
-    async fn delete(&self, file_path: &str) -> Result<(), RepositoryError>;
-
+pub trait SongRepositoryExt: Send + Sync + 'static {
     /// Delete a song by its file hash.
     ///
     /// # Errors
@@ -49,28 +27,6 @@ pub trait SongRepository: Send + Sync + 'static {
     /// songs.
     async fn prune(&self) -> Result<(), RepositoryError>;
 
-    /// Find all songs in the database.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while retrieving the
-    /// songs.
-    async fn find_all(
-        &self,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::songs::Model>, RepositoryError>;
-
-    /// Find a song by its file path.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while retrieving the
-    /// song.
-    async fn find_by_path(
-        &self,
-        file_path: &str,
-    ) -> Result<Option<entities::songs::Model>, RepositoryError>;
-
     /// Find a song by its file hash.
     ///
     /// # Errors
@@ -81,31 +37,6 @@ pub trait SongRepository: Send + Sync + 'static {
         &self,
         file_hash: &str,
     ) -> Result<Option<entities::songs::Model>, RepositoryError>;
-
-    /// Search for songs matching a query string.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while searching for
-    /// songs.
-    async fn search(
-        &self,
-        search_params: &SearchParams,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::songs::Model>, RepositoryError>;
-
-    /// Search for favourite songs of a user matching a query string.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while searching for
-    /// favourite songs.
-    async fn search_favourite_songs(
-        &self,
-        user_id: i64,
-        search_params: &SearchParams,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::songs::Model>, RepositoryError>;
 
     /// Count the total number of songs in the database.
     ///
@@ -138,54 +69,195 @@ pub trait SongRepository: Send + Sync + 'static {
     ) -> Result<Page<entities::songs::Model>, RepositoryError>;
 }
 
-/// A SeaORM implementation of the `SongRepository` trait.
-pub struct SeaOrmSongRepository {
-    db: AlwaysCloneableConnection,
+generate_dtos!(
+    entities::songs::Entity,
+    CreateSongDto {
+        file_path: String,
+        title: String,
+        artist: String,
+        album: String,
+        duration: f64,
+        file_hash: String,
+        bitrate: i32,
+    },
+    UpdateSongDto {
+        file_path: Option<String>,
+        title: Option<String>,
+        artist: Option<String>,
+        album: Option<String>,
+        duration: Option<f64>,
+        file_hash: Option<String>,
+        bitrate: Option<i32>,
+    }
+);
+
+enum OrderBy {
+    FilePath,
+    Title,
+    Artist,
+    Album,
+    Duration,
+    FileHash,
+    Bitrate,
 }
 
-impl SeaOrmSongRepository {
-    /// Create a new instance of `SeaOrmSongRepository`.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - A reference to a SeaORM database connection.
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
+enum OrderDirection {
+    Asc,
+    Desc,
+}
+
+#[derive(Default)]
+pub struct SongFilter {
+    file_path: Option<String>,
+    title: Option<String>,
+    artist: Option<String>,
+    album: Option<String>,
+    duration: Option<f64>,
+    file_hash: Option<String>,
+    bitrate: Option<i32>,
+    page: Option<u64>,
+    page_size: Option<u64>,
+    search: Option<String>,
+    order_by: Option<OrderBy>,
+    order_direction: Option<OrderDirection>,
+    favourited_by: Option<i64>,
+}
+
+impl SongFilter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn search(mut self, search: &str) -> Self {
+        self.search = Some(search.to_string());
+        self
+    }
+
+    pub fn artist(mut self, artist: &str) -> Self {
+        self.artist = Some(artist.to_string());
+        self
+    }
+
+    pub fn album(mut self, album: &str) -> Self {
+        self.album = Some(album.to_string());
+        self
+    }
+
+    pub fn title(mut self, title: &str) -> Self {
+        self.title = Some(title.to_string());
+        self
+    }
+
+    pub fn duration(mut self, duration: f64) -> Self {
+        self.duration = Some(duration);
+        self
+    }
+
+    pub fn file_hash(mut self, file_hash: &str) -> Self {
+        self.file_hash = Some(file_hash.to_string());
+        self
+    }
+
+    pub fn bitrate(mut self, bitrate: i32) -> Self {
+        self.bitrate = Some(bitrate);
+        self
+    }
+
+    pub fn page(mut self, page: u64) -> Self {
+        self.page = Some(page);
+        self
+    }
+
+    pub fn page_size(mut self, page_size: u64) -> Self {
+        self.page_size = Some(page_size);
+        self
+    }
+
+    pub fn order_by(mut self, order_by: OrderBy) -> Self {
+        self.order_by = Some(order_by);
+        self
+    }
+
+    pub fn order_direction(mut self, order_direction: OrderDirection) -> Self {
+        self.order_direction = Some(order_direction);
+        self
+    }
+
+    pub fn favourited_by(mut self, user_id: i64) -> Self {
+        self.favourited_by = Some(user_id);
+        self
     }
 }
 
 #[async_trait::async_trait]
-impl SongRepository for SeaOrmSongRepository {
-    async fn insert(
+impl ApplyQueryFilter<entities::songs::Entity> for SongFilter {
+    async fn apply(
         &self,
-        song: entities::songs::ActiveModel,
-    ) -> Result<entities::songs::Model, RepositoryError> {
-        let fti = entities::songs_fulltext::ActiveModel {
-            song_id: song.file_hash.clone(),
-            title: song.title.clone(),
-            artist: song.artist.clone(),
-            album: song.album.clone(),
-            ..Default::default()
-        };
-        let inserted = song.insert(&self.db).await.map_err(RepositoryError::from)?;
-        fti.insert(&self.db).await.map_err(RepositoryError::from)?;
+        query: Select<entities::songs::Entity>,
+    ) -> Select<entities::songs::Entity> {
+        let mut query = query;
 
-        Ok(inserted)
+        if let Some(search) = &self.search {
+            let ts_vec = to_tsvector(search);
+            let ts_query = ts_vec
+                .lexemes
+                .iter()
+                .map(|lexeme| format!("{}:*", lexeme.term))
+                .collect::<Vec<_>>()
+                .join(" & ");
+            query = query
+                .inner_join(entities::songs_fulltext::Entity)
+                .filter(entities::songs_fulltext::Column::Tsvector.full_text_search(ts_query));
+        }
+
+        if let Some(favourited_by) = self.favourited_by {
+            query = query
+                .inner_join(entities::favourite_songs::Entity)
+                .filter(entities::favourite_songs::Column::UserId.eq(favourited_by));
+        }
+
+        if let Some(file_path) = &self.file_path {
+            query = query.filter(entities::songs::Column::FilePath.eq(file_path));
+        }
+
+        if let Some(title) = &self.title {
+            query = query.filter(entities::songs::Column::Title.eq(title));
+        }
+
+        if let Some(artist) = &self.artist {
+            query = query.filter(entities::songs::Column::Artist.eq(artist));
+        }
+
+        if let Some(album) = &self.album {
+            query = query.filter(entities::songs::Column::Album.eq(album));
+        }
+
+        if let Some(duration) = self.duration {
+            query = query.filter(entities::songs::Column::Duration.eq(duration));
+        }
+
+        if let Some(file_hash) = &self.file_hash {
+            query = query.filter(entities::songs::Column::FileHash.eq(file_hash));
+        }
+
+        if let Some(bitrate) = self.bitrate {
+            query = query.filter(entities::songs::Column::Bitrate.eq(bitrate));
+        }
+
+        query
     }
 
-    async fn delete(&self, file_path: &str) -> Result<(), RepositoryError> {
-        let song = self.find_by_path(file_path).await?;
-        let Some(song) = song else { return Ok(()) };
-
-        entities::songs_fulltext::Entity::delete_by_id(&song.file_hash)
-            .exec(&self.db)
-            .await
-            .map_err(RepositoryError::from)?;
-        song.delete(&self.db).await.map_err(RepositoryError::from)?;
-
-        Ok(())
+    fn page_size(&self) -> u64 {
+        self.page_size.unwrap_or(20)
     }
 
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
+    }
+}
+
+#[async_trait::async_trait]
+impl SongRepositoryExt for BaseRepository<entities::songs::Entity> {
     async fn delete_by_hash(&self, file_hash: &str) -> Result<(), RepositoryError> {
         entities::songs_fulltext::Entity::delete_by_id(file_hash)
             .exec(&self.db)
@@ -210,34 +282,6 @@ impl SongRepository for SeaOrmSongRepository {
         Ok(())
     }
 
-    async fn find_all(
-        &self,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::songs::Model>, RepositoryError> {
-        let paginator = entities::songs::Entity::find().paginate(&self.db, pagination.page_size);
-
-        let page = paginator.fetch_page(pagination.page).await?;
-        let total = paginator.num_items_and_pages().await?;
-
-        Ok(Page::new(
-            page,
-            total.number_of_items,
-            pagination.page,
-            pagination.page_size,
-            total.number_of_pages,
-        ))
-    }
-
-    async fn find_by_path(
-        &self,
-        file_path: &str,
-    ) -> Result<Option<entities::songs::Model>, RepositoryError> {
-        entities::songs::Entity::find_by_id(file_path)
-            .one(&self.db)
-            .await
-            .map_err(RepositoryError::from)
-    }
-
     async fn find_by_hash(
         &self,
         file_hash: &str,
@@ -247,85 +291,6 @@ impl SongRepository for SeaOrmSongRepository {
             .one(&self.db)
             .await
             .map_err(RepositoryError::from)
-    }
-
-    async fn search(
-        &self,
-        search_params: &SearchParams,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::songs::Model>, RepositoryError> {
-        let mut query = entities::songs::Entity::find()
-            .inner_join(entities::songs_fulltext::Entity)
-            .filter(
-                entities::songs_fulltext::Column::Tsvector
-                    .full_text_search(&search_params.as_ts_query()),
-            );
-
-        if let Some(artist) = &search_params.artist {
-            query = query.filter(Expr::col(entities::songs::Column::Artist).ilike(artist));
-        }
-
-        if let Some(album) = &search_params.album {
-            query = query.filter(Expr::col(entities::songs::Column::Album).ilike(album));
-        }
-
-        if let Some(title) = &search_params.title {
-            query = query.filter(Expr::col(entities::songs::Column::Title).ilike(title));
-        }
-
-        let paginator = query.paginate(&self.db, pagination.page_size);
-
-        let page = paginator.fetch_page(pagination.page).await?;
-        let total = paginator.num_items_and_pages().await?;
-
-        Ok(Page::new(
-            page,
-            total.number_of_items,
-            pagination.page,
-            pagination.page_size,
-            total.number_of_pages,
-        ))
-    }
-
-    async fn search_favourite_songs(
-        &self,
-        user_id: i64,
-        search_params: &SearchParams,
-        pagination: &PaginationParams,
-    ) -> Result<Page<entities::songs::Model>, RepositoryError> {
-        let mut query = entities::songs::Entity::find()
-            .inner_join(entities::songs_fulltext::Entity)
-            .inner_join(entities::favourite_songs::Entity)
-            .filter(
-                entities::songs_fulltext::Column::Tsvector
-                    .full_text_search(&search_params.as_ts_query()),
-            )
-            .filter(entities::favourite_songs::Column::UserId.eq(user_id));
-
-        if let Some(artist) = &search_params.artist {
-            query = query.filter(Expr::col(entities::songs::Column::Artist).ilike(artist));
-        }
-
-        if let Some(album) = &search_params.album {
-            query = query.filter(Expr::col(entities::songs::Column::Album).ilike(album));
-        }
-
-        if let Some(title) = &search_params.title {
-            query = query.filter(Expr::col(entities::songs::Column::Title).ilike(title));
-        }
-
-        let paginator = query.paginate(&self.db, pagination.page_size);
-
-        let page = paginator.fetch_page(pagination.page).await?;
-        let total = paginator.num_items_and_pages().await?;
-
-        Ok(Page::new(
-            page,
-            total.number_of_items,
-            pagination.page,
-            pagination.page_size,
-            total.number_of_pages,
-        ))
     }
 
     async fn count(&self) -> Result<u64, RepositoryError> {

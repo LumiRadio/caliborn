@@ -3,27 +3,25 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use cooldowns::CooldownServiceImpl;
 use hmac::Hmac;
 use sha2::Sha256;
-use songs::SongServiceImpl;
 use tokio::sync::Mutex;
 
 use crate::{
     DiscordOAuthClient,
     liquidsoap::LiquidsoapClient,
-    repositories::RepositoryFactory,
+    repositories::AlwaysCloneableConnection,
     services::{
-        auth::AuthServiceImpl, cans::CansServiceImpl, economy::EconomyServiceImpl,
-        users::UserServiceImpl,
+        admin::AdminCrudService, auth::AuthService, cans::CansService, cooldowns::CooldownService,
+        economy::EconomyService, songs::SongService, users::UserService,
     },
 };
 
+pub mod admin;
 pub mod auth;
 pub mod cans;
 pub mod cooldowns;
 pub mod economy;
-pub mod permissions;
 pub mod songs;
 pub mod users;
 
@@ -89,34 +87,36 @@ impl Display for UserId {
 
 #[derive(Clone)]
 pub struct ServiceRegistry {
-    repository_factory: Arc<dyn RepositoryFactory>,
     jwt_secret: Hmac<Sha256>,
     hmac_secret: Hmac<Sha256>,
     oauth_client: DiscordOAuthClient,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
+    db: AlwaysCloneableConnection,
 
     // services
-    auth_service: CachedService<AuthServiceImpl>,
-    economy_service: CachedService<EconomyServiceImpl>,
-    user_service: CachedService<UserServiceImpl>,
-    can_service: CachedService<CansServiceImpl>,
-    cooldown_service: CachedService<CooldownServiceImpl>,
-    song_service: CachedService<SongServiceImpl>,
+    admin_service: CachedService<AdminCrudService>,
+    auth_service: CachedService<AuthService>,
+    economy_service: CachedService<EconomyService>,
+    user_service: CachedService<UserService>,
+    can_service: CachedService<CansService>,
+    cooldown_service: CachedService<CooldownService>,
+    song_service: CachedService<SongService>,
 }
 
 impl ServiceRegistry {
     pub fn new(
-        factory: Arc<dyn RepositoryFactory>,
+        db: AlwaysCloneableConnection,
         jwt_secret: Hmac<Sha256>,
         hmac_secret: Hmac<Sha256>,
         oauth_client: DiscordOAuthClient,
         liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     ) -> Self {
         Self {
-            repository_factory: factory,
+            db,
             jwt_secret,
             hmac_secret,
             oauth_client,
+            admin_service: CachedService::new(),
             auth_service: CachedService::new(),
             economy_service: CachedService::new(),
             user_service: CachedService::new(),
@@ -127,11 +127,15 @@ impl ServiceRegistry {
         }
     }
 
-    pub fn auth_service(&self) -> Arc<AuthServiceImpl> {
+    pub fn admin_service(&self) -> Arc<AdminCrudService> {
+        self.admin_service
+            .get_or_init(|| AdminCrudService::new(&self.db))
+    }
+
+    pub fn auth_service(&self) -> Arc<AuthService> {
         self.auth_service.get_or_init(|| {
-            let user_repo = self.repository_factory.user_repository();
-            AuthServiceImpl::new(
-                user_repo,
+            AuthService::new(
+                &self.db,
                 self.oauth_client.clone(),
                 self.jwt_secret.clone(),
                 self.hmac_secret.clone(),
@@ -139,58 +143,28 @@ impl ServiceRegistry {
         })
     }
 
-    pub fn economy_service(&self) -> Arc<EconomyServiceImpl> {
-        self.economy_service.get_or_init(|| {
-            let user_repo = self.repository_factory.user_repository();
-            let user_service = self.user_service();
-            EconomyServiceImpl::new(user_repo, user_service)
-        })
+    pub fn economy_service(&self) -> Arc<EconomyService> {
+        self.economy_service
+            .get_or_init(|| EconomyService::new(&self.db, self))
     }
 
-    pub fn user_service(&self) -> Arc<UserServiceImpl> {
-        self.user_service.get_or_init(|| {
-            let user_repo = self.repository_factory.user_repository();
-            let cooldown_service = self.cooldown_service();
-            UserServiceImpl::new(user_repo, cooldown_service)
-        })
+    pub fn user_service(&self) -> Arc<UserService> {
+        self.user_service
+            .get_or_init(|| UserService::new(&self.db, self))
     }
 
-    pub fn can_service(&self) -> Arc<CansServiceImpl> {
-        self.can_service.get_or_init(|| {
-            let can_repo = self.repository_factory.can_repository();
-            CansServiceImpl::new(can_repo)
-        })
+    pub fn can_service(&self) -> Arc<CansService> {
+        self.can_service
+            .get_or_init(|| CansService::new(&self.db, self))
     }
 
-    pub fn cooldown_service(&self) -> Arc<CooldownServiceImpl> {
-        self.cooldown_service.get_or_init(|| {
-            let cooldown_repo = self.repository_factory.cooldown_repository();
-            CooldownServiceImpl::new(cooldown_repo)
-        })
+    pub fn cooldown_service(&self) -> Arc<CooldownService> {
+        self.cooldown_service
+            .get_or_init(|| CooldownService::new(&self.db))
     }
 
-    pub fn song_service(&self) -> Arc<SongServiceImpl> {
-        self.song_service.get_or_init(|| {
-            let song_repo = self.repository_factory.song_repository();
-            let user_repo = self.repository_factory.user_repository();
-            let song_request_repo = self.repository_factory.song_request_repository();
-            let song_history_repo = self.repository_factory.song_history_repository();
-            let favourite_song_repo = self.repository_factory.favourite_song_repository();
-            let tag_repo = self.repository_factory.tag_repository();
-            let user_service = self.user_service();
-            let cooldown_service = self.cooldown_service();
-
-            SongServiceImpl::new(
-                song_repo,
-                user_repo,
-                song_request_repo,
-                song_history_repo,
-                favourite_song_repo,
-                tag_repo,
-                user_service,
-                cooldown_service,
-                self.liquidsoap_client.clone(),
-            )
-        })
+    pub fn song_service(&self) -> Arc<SongService> {
+        self.song_service
+            .get_or_init(|| SongService::new(&self.db, self, self.liquidsoap_client.clone()))
     }
 }

@@ -17,24 +17,24 @@ use crate::{
     },
 };
 
-/// Get the current can count.
+/// Get the current bear count.
 ///
 /// # Returns
 ///
-/// A 200 OK response containing the current can count.
+/// A 200 OK response containing the current bear count.
 ///
 /// # Errors
 ///
 /// * `500 Internal Server Error` - An internal server error occurred
 #[utoipa::path(
     get,
-    path = "/cans/count",
+    path = "/bears/count",
     responses(
-        (status = 200, description = "Current can count was successfully retrieved", body = CanCountDto),
+        (status = 200, description = "Current bear count was successfully retrieved", body = CanCountDto),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"}))
     )
 )]
-pub async fn get_can_count(
+pub async fn get_bear_count(
     AuthenticatedUser(actor): AuthenticatedUser,
     State(registry): State<ServiceRegistry>,
 ) -> CalibornResult<CanCountDto> {
@@ -50,11 +50,11 @@ pub async fn get_can_count(
     Ok(CanCountDto { count })
 }
 
-/// Add a can to Can Town.
+/// Add a bear to Bear Town.
 ///
 /// # Returns
 ///
-/// A 200 OK response containing the new can count.
+/// A 200 OK response containing the new bear count.
 ///
 /// # Errors
 ///
@@ -62,9 +62,9 @@ pub async fn get_can_count(
 /// * `401 Unauthorized` - An authorization error occurred (e.g. invalid access token)
 #[utoipa::path(
     post,
-    path = "/cans/add",
+    path = "/bears/add",
     responses(
-        (status = 200, description = "Can was successfully added", body = CanCountDto),
+        (status = 200, description = "Bear was successfully added", body = CanCountDto),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"})),
         (status = 401, description = "An authorization error occurred (e.g. invalid access token)", body = ErrorResponse, example = json!({"message": "Invalid access token", "error": "Unauthorized"}))
     ),
@@ -73,7 +73,7 @@ pub async fn get_can_count(
         ("user_api_key" = [])
     )
 )]
-pub async fn add_can(
+pub async fn add_bear(
     AuthenticatedUser(actor): AuthenticatedUser,
     State(registry): State<ServiceRegistry>,
 ) -> CalibornResult<CanCountDto> {
@@ -85,14 +85,14 @@ pub async fn add_can(
         .await?;
     user_service.update_user_activity(actor.user_id()).await?;
 
-    can_service.add(actor.user_id(), CanType::Can).await?;
+    can_service.add(actor.user_id(), CanType::Bear).await?;
     let count = can_service.count().await?;
     Ok(CanCountDto { count })
 }
 
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/count", get(get_can_count))
-        .route("/add", post(add_can))
+        .route("/count", get(get_bear_count))
+        .route("/add", post(add_bear))
         .layer(axum::middleware::from_fn_with_state(state, authenticate))
 }

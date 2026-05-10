@@ -5,7 +5,11 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use crate::{
     RepositoryError,
     dtos::error::{PublicError, ToPublicError},
-    repositories::cooldowns::CooldownRepository,
+    entities,
+    repositories::{
+        AlwaysCloneableConnection, BaseRepository,
+        cooldowns::{CooldownFilter, CooldownScope, CreateCooldownDto},
+    },
 };
 
 use super::UserId;
@@ -27,56 +31,34 @@ impl ToPublicError for CooldownServiceError {
     }
 }
 
-#[async_trait::async_trait]
-pub trait CooldownService: Send + Sync + 'static {
-    async fn set_global_cooldown(
-        &self,
-        key: &str,
-        duration: chrono::Duration,
-    ) -> Result<(), CooldownServiceError>;
-    async fn set_user_cooldown(
-        &self,
-        key: &str,
-        user_id: UserId,
-        duration: chrono::Duration,
-    ) -> Result<(), CooldownServiceError>;
-    async fn get_global_cooldown(
-        &self,
-        key: &str,
-    ) -> Result<Option<NaiveDateTime>, CooldownServiceError>;
-    async fn get_user_cooldown(
-        &self,
-        key: &str,
-        user_id: UserId,
-    ) -> Result<Option<NaiveDateTime>, CooldownServiceError>;
-    async fn is_on_user_cooldown(
-        &self,
-        key: &str,
-        user_id: UserId,
-    ) -> Result<bool, CooldownServiceError>;
-    async fn is_on_global_cooldown(&self, key: &str) -> Result<bool, CooldownServiceError>;
+pub struct CooldownService {
+    cooldown_repository: BaseRepository<entities::cooldown::Entity>,
 }
 
-pub struct CooldownServiceImpl {
-    cooldown_repository: Box<dyn CooldownRepository>,
-}
-
-impl CooldownServiceImpl {
-    pub fn new(repo: Box<dyn CooldownRepository>) -> Self {
+impl CooldownService {
+    pub fn new(db: &AlwaysCloneableConnection) -> Self {
         Self {
-            cooldown_repository: repo,
+            cooldown_repository: BaseRepository::new(db),
         }
     }
-}
 
-#[async_trait::async_trait]
-impl CooldownService for CooldownServiceImpl {
-    async fn set_global_cooldown(
+    pub async fn set_global_cooldown(
         &self,
         key: &str,
         duration: chrono::Duration,
     ) -> Result<(), CooldownServiceError> {
-        if self.cooldown_repository.get_global(key).await?.is_some() {
+        let maybe_cooldown = self
+            .cooldown_repository
+            .browse(
+                CooldownFilter::new()
+                    .scope(CooldownScope::Global)
+                    .key(key.to_string()),
+            )
+            .await?
+            .items
+            .into_iter()
+            .next();
+        if maybe_cooldown.is_some() {
             return Err(CooldownServiceError::GlobalCooldownAlreadyExists(
                 key.to_string(),
             ));
@@ -84,12 +66,19 @@ impl CooldownService for CooldownServiceImpl {
 
         let now = chrono::Utc::now();
         self.cooldown_repository
-            .create_global(key, (now + duration).naive_utc())
+            .add(CreateCooldownDto {
+                scope: CooldownScope::Global.to_string(),
+                key: key.to_string(),
+                expires_at: (now + duration).naive_utc(),
+                user_id: None,
+            })
             .await
-            .map_err(|e| CooldownServiceError::from(e))
+            .map_err(|e| CooldownServiceError::from(e))?;
+
+        Ok(())
     }
 
-    async fn set_user_cooldown(
+    pub async fn set_user_cooldown(
         &self,
         key: &str,
         user_id: UserId,
@@ -97,8 +86,15 @@ impl CooldownService for CooldownServiceImpl {
     ) -> Result<(), CooldownServiceError> {
         if self
             .cooldown_repository
-            .get(key, user_id.into())
+            .browse(
+                CooldownFilter::new()
+                    .scope(CooldownScope::User)
+                    .key(key.to_string())
+                    .user_id(user_id.into()),
+            )
             .await?
+            .items
+            .first()
             .is_some()
         {
             return Err(CooldownServiceError::UserCooldownAlreadyExists(
@@ -108,38 +104,68 @@ impl CooldownService for CooldownServiceImpl {
 
         let now = chrono::Utc::now();
         self.cooldown_repository
-            .create_user(user_id.into(), key, (now + duration).naive_utc())
+            .add(CreateCooldownDto {
+                scope: CooldownScope::User.to_string(),
+                user_id: Some(user_id.into()),
+                key: key.to_string(),
+                expires_at: (now + duration).naive_utc(),
+            })
             .await
-            .map_err(|e| CooldownServiceError::from(e))
+            .map_err(|e| CooldownServiceError::from(e))?;
+
+        Ok(())
     }
 
-    async fn get_user_cooldown(
+    pub async fn get_user_cooldown(
         &self,
         key: &str,
         user_id: UserId,
     ) -> Result<Option<NaiveDateTime>, CooldownServiceError> {
-        let cooldown = self.cooldown_repository.get(key, user_id.into()).await?;
+        let cooldown = self
+            .cooldown_repository
+            .read_by(
+                CooldownFilter::new()
+                    .scope(CooldownScope::User)
+                    .key(key.to_string())
+                    .user_id(user_id.into()),
+            )
+            .await?;
         let expires_at = cooldown.map(|m| m.expires_at);
 
         Ok(expires_at)
     }
 
-    async fn get_global_cooldown(
+    pub async fn get_global_cooldown(
         &self,
         key: &str,
     ) -> Result<Option<NaiveDateTime>, CooldownServiceError> {
-        let cooldown = self.cooldown_repository.get_global(key).await?;
+        let cooldown = self
+            .cooldown_repository
+            .read_by(
+                CooldownFilter::new()
+                    .scope(CooldownScope::Global)
+                    .key(key.to_string()),
+            )
+            .await?;
         let expires_at = cooldown.map(|m| m.expires_at);
 
         Ok(expires_at)
     }
 
-    async fn is_on_user_cooldown(
+    pub async fn is_on_user_cooldown(
         &self,
         key: &str,
         user_id: UserId,
     ) -> Result<bool, CooldownServiceError> {
-        let cooldown = self.cooldown_repository.get(key, user_id.into()).await?;
+        let cooldown = self
+            .cooldown_repository
+            .read_by(
+                CooldownFilter::new()
+                    .key(key.to_string())
+                    .scope(CooldownScope::User)
+                    .user_id(user_id.into()),
+            )
+            .await?;
         let expires_at = cooldown
             .map(|m| m.expires_at)
             .unwrap_or(DateTime::<Utc>::MIN_UTC.naive_utc());
@@ -147,8 +173,15 @@ impl CooldownService for CooldownServiceImpl {
         Ok(expires_at > chrono::Utc::now().naive_utc())
     }
 
-    async fn is_on_global_cooldown(&self, key: &str) -> Result<bool, CooldownServiceError> {
-        let cooldown = self.cooldown_repository.get_global(key).await?;
+    pub async fn is_on_global_cooldown(&self, key: &str) -> Result<bool, CooldownServiceError> {
+        let cooldown = self
+            .cooldown_repository
+            .read_by(
+                CooldownFilter::new()
+                    .key(key.to_string())
+                    .scope(CooldownScope::Global),
+            )
+            .await?;
         let expires_at = cooldown
             .map(|m| m.expires_at)
             .unwrap_or(DateTime::<Utc>::MIN_UTC.naive_utc());
@@ -161,34 +194,21 @@ impl CooldownService for CooldownServiceImpl {
 pub trait GlobalCooldown: Display {
     fn duration(&self) -> chrono::Duration;
 
-    async fn set<S: AsRef<dyn CooldownService>>(
-        &self,
-        service: S,
-    ) -> Result<(), CooldownServiceError> {
+    async fn set(&self, service: &CooldownService) -> Result<(), CooldownServiceError> {
         service
-            .as_ref()
             .set_global_cooldown(&self.to_string(), self.duration())
             .await
     }
 
-    async fn get<S: AsRef<dyn CooldownService>>(
+    async fn get(
         &self,
-        service: S,
+        service: &CooldownService,
     ) -> Result<Option<NaiveDateTime>, CooldownServiceError> {
-        service
-            .as_ref()
-            .get_global_cooldown(&self.to_string())
-            .await
+        service.get_global_cooldown(&self.to_string()).await
     }
 
-    async fn on_cooldown<S: AsRef<dyn CooldownService>>(
-        &self,
-        service: S,
-    ) -> Result<bool, CooldownServiceError> {
-        service
-            .as_ref()
-            .is_on_global_cooldown(&self.to_string())
-            .await
+    async fn on_cooldown(&self, service: &CooldownService) -> Result<bool, CooldownServiceError> {
+        service.is_on_global_cooldown(&self.to_string()).await
     }
 }
 
@@ -196,35 +216,30 @@ pub trait GlobalCooldown: Display {
 pub trait UserCooldown: Display {
     fn duration(&self) -> chrono::Duration;
 
-    async fn set<S: AsRef<dyn CooldownService>>(
+    async fn set(
         &self,
-        service: S,
+        service: &CooldownService,
         user_id: UserId,
     ) -> Result<(), CooldownServiceError> {
         service
-            .as_ref()
             .set_user_cooldown(&self.to_string(), user_id, self.duration())
             .await
     }
 
-    async fn get<S: AsRef<dyn CooldownService>>(
+    async fn get(
         &self,
-        service: S,
+        service: &CooldownService,
         user_id: UserId,
     ) -> Result<Option<NaiveDateTime>, CooldownServiceError> {
-        service
-            .as_ref()
-            .get_user_cooldown(&self.to_string(), user_id)
-            .await
+        service.get_user_cooldown(&self.to_string(), user_id).await
     }
 
-    async fn on_cooldown<S: AsRef<dyn CooldownService>>(
+    async fn on_cooldown(
         &self,
-        service: S,
+        service: &CooldownService,
         user_id: UserId,
     ) -> Result<bool, CooldownServiceError> {
         service
-            .as_ref()
             .is_on_user_cooldown(&self.to_string(), user_id)
             .await
     }

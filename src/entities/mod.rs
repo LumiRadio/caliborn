@@ -19,5 +19,4 @@ pub mod song_tags;
 pub mod songs;
 pub mod songs_fulltext;
 pub mod user_permissions;
-pub mod user_roles;
 pub mod users;

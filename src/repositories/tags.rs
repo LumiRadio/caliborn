@@ -1,13 +1,13 @@
 use sea_orm::{ActiveValue, prelude::*};
 
 use crate::{
-    entities,
-    repositories::{AlwaysCloneableConnection, RepositoryError},
+    entities, generate_dtos,
+    repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
 };
 
 /// A trait representing a repository for song tags.
 #[async_trait::async_trait]
-pub trait TagRepository: Send + Sync + 'static {
+pub trait TagRepositoryExt: Send + Sync + 'static {
     /// Get all tags for a specific song.
     ///
     /// # Errors
@@ -18,19 +18,6 @@ pub trait TagRepository: Send + Sync + 'static {
         &self,
         file_hash: &str,
     ) -> Result<Vec<entities::song_tags::Model>, RepositoryError>;
-
-    /// Insert a new tag for a song.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while inserting the
-    /// tag.
-    async fn insert(
-        &self,
-        file_hash: &str,
-        tag: &str,
-        value: &str,
-    ) -> Result<entities::song_tags::Model, RepositoryError>;
 
     /// Insert multiple tags for a song.
     ///
@@ -61,24 +48,58 @@ pub trait TagRepository: Send + Sync + 'static {
     async fn prune(&self) -> Result<(), RepositoryError>;
 }
 
-/// A SeaORM implementation of the `TagRepository` trait.
-pub struct SeaOrmTagRepository {
-    db: AlwaysCloneableConnection,
+generate_dtos!(
+    entities::song_tags::Entity,
+    CreateTagDto {
+        song_id: String,
+        tag: String,
+        value: String,
+    },
+    UpdateTagDto {
+        song_id: Option<String>,
+        tag: Option<String>,
+        value: Option<String>,
+    }
+);
+
+#[derive(Default)]
+pub struct TagFilter {
+    song_id: Option<String>,
+    tag: Option<String>,
+    page: Option<u64>,
+    page_size: Option<u64>,
 }
 
-impl SeaOrmTagRepository {
-    /// Create a new instance of `SeaOrmTagRepository`.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - A reference to a SeaORM database connection.
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
+#[async_trait::async_trait]
+impl ApplyQueryFilter<entities::song_tags::Entity> for TagFilter {
+    async fn apply(
+        &self,
+        query: Select<entities::song_tags::Entity>,
+    ) -> Select<entities::song_tags::Entity> {
+        let mut query = query;
+
+        if let Some(song_id) = &self.song_id {
+            query = query.filter(entities::song_tags::Column::SongId.eq(song_id));
+        }
+
+        if let Some(tag) = &self.tag {
+            query = query.filter(entities::song_tags::Column::Tag.eq(tag));
+        }
+
+        query
+    }
+
+    fn page_size(&self) -> u64 {
+        self.page_size.unwrap_or(20)
+    }
+
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
     }
 }
 
 #[async_trait::async_trait]
-impl TagRepository for SeaOrmTagRepository {
+impl TagRepositoryExt for BaseRepository<entities::song_tags::Entity> {
     async fn get_song_tags(
         &self,
         file_hash: &str,
@@ -88,23 +109,6 @@ impl TagRepository for SeaOrmTagRepository {
             .all(&self.db)
             .await
             .map_err(RepositoryError::from)
-    }
-
-    async fn insert(
-        &self,
-        file_hash: &str,
-        tag: &str,
-        value: &str,
-    ) -> Result<entities::song_tags::Model, RepositoryError> {
-        entities::song_tags::ActiveModel {
-            song_id: ActiveValue::set(file_hash.to_string()),
-            tag: ActiveValue::set(tag.to_string()),
-            value: ActiveValue::set(value.to_string()),
-            ..Default::default()
-        }
-        .insert(&self.db)
-        .await
-        .map_err(RepositoryError::from)
     }
 
     async fn insert_many(

@@ -1,8 +1,11 @@
 use std::{fmt::Display, str::FromStr};
 
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DeleteMany, QueryFilter, Select};
 
-use crate::{entities, repositories::AlwaysCloneableConnection};
+use crate::{
+    entities, generate_dtos,
+    repositories::{ApplyDeleteFilter, ApplyQueryFilter, BaseRepository},
+};
 
 use super::RepositoryError;
 
@@ -18,6 +21,7 @@ impl Display for UnknownCooldownScope {
 impl std::error::Error for UnknownCooldownScope {}
 
 /// A cooldown scope
+#[derive(Debug, Clone)]
 pub enum CooldownScope {
     User,
     Global,
@@ -44,44 +48,128 @@ impl FromStr for CooldownScope {
     }
 }
 
+generate_dtos!(
+    entities::cooldown::Entity,
+    CreateCooldownDto {
+        scope: String,
+        user_id: Option<i64>,
+        key: String,
+        expires_at: chrono::NaiveDateTime
+    },
+    UpdateCooldownDto {
+        scope: Option<String>,
+        user_id: Option<Option<i64>>,
+        key: Option<String>,
+        expires_at: Option<chrono::NaiveDateTime>
+    }
+);
+
+#[derive(Default)]
+pub struct CooldownFilter {
+    scope: Option<CooldownScope>,
+    key: Option<String>,
+    user_id: Option<i64>,
+    page: Option<u64>,
+    page_size: Option<u64>,
+}
+
+#[derive(Default)]
+pub struct CooldownDeleteFilter {
+    scope: Option<CooldownScope>,
+    key: Option<String>,
+    user_id: Option<i64>,
+}
+
+impl CooldownFilter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn scope(mut self, scope: CooldownScope) -> Self {
+        self.scope = Some(scope);
+        self
+    }
+
+    pub fn key(mut self, key: String) -> Self {
+        self.key = Some(key);
+        self
+    }
+
+    pub fn user_id(mut self, user_id: i64) -> Self {
+        self.user_id = Some(user_id);
+        self
+    }
+
+    pub fn page(mut self, page: u64) -> Self {
+        self.page = Some(page);
+        self
+    }
+
+    pub fn page_size(mut self, page_size: u64) -> Self {
+        self.page_size = Some(page_size);
+        self
+    }
+}
+
+#[async_trait::async_trait]
+impl ApplyQueryFilter<entities::cooldown::Entity> for CooldownFilter {
+    async fn apply(
+        &self,
+        query: Select<entities::cooldown::Entity>,
+    ) -> Select<entities::cooldown::Entity> {
+        let mut query = query;
+
+        if let Some(scope) = &self.scope {
+            query = query.filter(entities::cooldown::Column::Scope.eq(scope.to_string()));
+        }
+
+        if let Some(key) = &self.key {
+            query = query.filter(entities::cooldown::Column::Key.eq(key));
+        }
+
+        if let Some(user_id) = self.user_id {
+            query = query.filter(entities::cooldown::Column::UserId.eq(user_id));
+        }
+
+        query
+    }
+
+    fn page_size(&self) -> u64 {
+        self.page_size.unwrap_or(20)
+    }
+
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
+    }
+}
+
+#[async_trait::async_trait]
+impl ApplyDeleteFilter<entities::cooldown::Entity> for CooldownDeleteFilter {
+    async fn apply_delete(
+        &self,
+        query: DeleteMany<entities::cooldown::Entity>,
+    ) -> DeleteMany<entities::cooldown::Entity> {
+        let mut query = query;
+
+        if let Some(scope) = &self.scope {
+            query = query.filter(entities::cooldown::Column::Scope.eq(scope.to_string()));
+        }
+
+        if let Some(key) = &self.key {
+            query = query.filter(entities::cooldown::Column::Key.eq(key));
+        }
+
+        if let Some(user_id) = self.user_id {
+            query = query.filter(entities::cooldown::Column::UserId.eq(user_id));
+        }
+
+        query
+    }
+}
+
 /// A trait representing a repository for managing cooldowns.
 #[async_trait::async_trait]
-pub trait CooldownRepository: Send + Sync + 'static {
-    /// Retrieves a user cooldown by its key.
-    async fn get(
-        &self,
-        key: &str,
-        user_id: i64,
-    ) -> Result<Option<entities::cooldown::Model>, RepositoryError>;
-
-    /// Retrieves a global cooldown by its key.
-    async fn get_global(
-        &self,
-        key: &str,
-    ) -> Result<Option<entities::cooldown::Model>, RepositoryError>;
-
-    /// Retrieves all cooldowns by their key and, optionally, their scope.
-    async fn get_all(
-        &self,
-        key: &str,
-        scope: Option<CooldownScope>,
-    ) -> Result<Vec<entities::cooldown::Model>, RepositoryError>;
-
-    /// Creates a new user cooldown.
-    async fn create_user(
-        &self,
-        user_id: i64,
-        key: &str,
-        expires_at: chrono::NaiveDateTime,
-    ) -> Result<(), RepositoryError>;
-
-    /// Creates a new global cooldown.
-    async fn create_global(
-        &self,
-        key: &str,
-        expires_at: chrono::NaiveDateTime,
-    ) -> Result<(), RepositoryError>;
-
+pub trait CooldownRepositoryExt: Send + Sync + 'static {
     /// Deletes a user cooldown by its key.
     async fn delete_user(&self, user_id: i64, key: &str) -> Result<(), RepositoryError>;
 
@@ -89,115 +177,26 @@ pub trait CooldownRepository: Send + Sync + 'static {
     async fn delete_global(&self, key: &str) -> Result<(), RepositoryError>;
 }
 
-pub struct SeaOrmCooldownRepository {
-    db: AlwaysCloneableConnection,
-}
-
-impl SeaOrmCooldownRepository {
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
-    }
-}
-
 #[async_trait::async_trait]
-impl CooldownRepository for SeaOrmCooldownRepository {
-    async fn get(
-        &self,
-        key: &str,
-        user_id: i64,
-    ) -> Result<Option<entities::cooldown::Model>, RepositoryError> {
-        entities::cooldown::Entity::find()
-            .filter(entities::cooldown::Column::UserId.eq(user_id))
-            .filter(entities::cooldown::Column::Scope.eq(CooldownScope::User.to_string()))
-            .filter(entities::cooldown::Column::Key.eq(key))
-            .one(&self.db)
-            .await
-            .map_err(|e| RepositoryError::from(e))
-    }
-
-    async fn get_global(
-        &self,
-        key: &str,
-    ) -> Result<Option<entities::cooldown::Model>, RepositoryError> {
-        entities::cooldown::Entity::find()
-            .filter(entities::cooldown::Column::Scope.eq(CooldownScope::Global.to_string()))
-            .filter(entities::cooldown::Column::Key.eq(key))
-            .one(&self.db)
-            .await
-            .map_err(|e| RepositoryError::from(e))
-    }
-
-    async fn get_all(
-        &self,
-        key: &str,
-        scope: Option<CooldownScope>,
-    ) -> Result<Vec<entities::cooldown::Model>, RepositoryError> {
-        let mut query =
-            entities::cooldown::Entity::find().filter(entities::cooldown::Column::Key.eq(key));
-
-        if let Some(scope) = scope {
-            query = query.filter(entities::cooldown::Column::Scope.eq(scope.to_string()));
-        }
-
-        query
-            .all(&self.db)
-            .await
-            .map_err(|e| RepositoryError::from(e))
-    }
-
-    async fn create_user(
-        &self,
-        user_id: i64,
-        key: &str,
-        expires_at: chrono::NaiveDateTime,
-    ) -> Result<(), RepositoryError> {
-        entities::cooldown::ActiveModel {
-            scope: ActiveValue::set(CooldownScope::User.to_string()),
-            user_id: ActiveValue::Set(Some(user_id)),
-            key: ActiveValue::Set(key.to_string()),
-            expires_at: ActiveValue::Set(expires_at),
-            ..Default::default()
-        }
-        .insert(&self.db)
-        .await?;
-
-        Ok(())
-    }
-
-    async fn create_global(
-        &self,
-        key: &str,
-        expires_at: chrono::NaiveDateTime,
-    ) -> Result<(), RepositoryError> {
-        entities::cooldown::ActiveModel {
-            scope: ActiveValue::set(CooldownScope::Global.to_string()),
-            key: ActiveValue::Set(key.to_string()),
-            expires_at: ActiveValue::Set(expires_at),
-            ..Default::default()
-        }
-        .insert(&self.db)
-        .await?;
-
-        Ok(())
-    }
-
+impl CooldownRepositoryExt for BaseRepository<entities::cooldown::Entity> {
     async fn delete_user(&self, user_id: i64, key: &str) -> Result<(), RepositoryError> {
-        entities::cooldown::Entity::delete_many()
-            .filter(entities::cooldown::Column::UserId.eq(user_id))
-            .filter(entities::cooldown::Column::Scope.eq(CooldownScope::User.to_string()))
-            .filter(entities::cooldown::Column::Key.eq(key))
-            .exec(&self.db)
-            .await?;
+        self.delete_by(CooldownDeleteFilter {
+            key: Some(key.to_string()),
+            scope: Some(CooldownScope::User),
+            user_id: Some(user_id),
+        })
+        .await?;
 
         Ok(())
     }
 
     async fn delete_global(&self, key: &str) -> Result<(), RepositoryError> {
-        entities::cooldown::Entity::delete_many()
-            .filter(entities::cooldown::Column::Scope.eq(CooldownScope::Global.to_string()))
-            .filter(entities::cooldown::Column::Key.eq(key))
-            .exec(&self.db)
-            .await?;
+        self.delete_by(CooldownDeleteFilter {
+            key: Some(key.to_string()),
+            scope: Some(CooldownScope::Global),
+            user_id: None,
+        })
+        .await?;
 
         Ok(())
     }

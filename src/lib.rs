@@ -13,10 +13,12 @@ use tokio::sync::Mutex;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::{liquidsoap::LiquidsoapClient, openapi::ApiDoc};
+use crate::{
+    liquidsoap::LiquidsoapClient, openapi::ApiDoc, repositories::AlwaysCloneableConnection,
+};
 pub use crate::{
     liquidsoap::{LiquidsoapClientImpl, LiquidsoapError},
-    repositories::{RepositoryError, RepositoryFactory, SeaOrmRepositoryFactory},
+    repositories::RepositoryError,
     services::ServiceRegistry,
 };
 
@@ -32,8 +34,10 @@ pub mod pg_extension;
 pub mod repositories;
 /// API routes for the application.
 pub mod routes;
+pub mod sea_orm_utils;
 /// Services for business logic.
 pub mod services;
+/// Vectorizer for full-text search.
 pub mod vectorizer;
 
 /// A type alias for a Discord OAuth client, which doesn't need authorization, but only the code exchange.
@@ -95,12 +99,12 @@ pub fn make_app(
     jwt_secret: Hmac<Sha256>,
     hmac_secret: Hmac<Sha256>,
     oauth_client: DiscordOAuthClient,
-    factory: Arc<dyn RepositoryFactory>,
+    db: AlwaysCloneableConnection,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
 ) -> axum::Router {
     let app_state = AppState {
         service_registry: ServiceRegistry::new(
-            factory,
+            db,
             jwt_secret,
             hmac_secret,
             oauth_client,
@@ -112,6 +116,7 @@ pub fn make_app(
         .nest("/auth", routes::auth::routes())
         .nest("/user", routes::user::routes(app_state.clone()))
         .nest("/cans", routes::cans::routes(app_state.clone()))
+        .nest("/bears", routes::bears::routes(app_state.clone()))
         .nest("/songs", routes::songs::routes(app_state.clone()))
         .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
         .with_state(app_state);

@@ -3,8 +3,12 @@ use std::sync::Arc;
 use reqwest::StatusCode;
 
 use crate::{
+    ServiceRegistry,
     dtos::error::{PublicError, ToPublicError},
-    repositories::{RepositoryError, users::UserRepository},
+    entities,
+    repositories::{
+        AlwaysCloneableConnection, BaseRepository, RepositoryError, users::UserRepositoryExt,
+    },
     services::users::{UserService, UserServiceError},
 };
 
@@ -48,42 +52,26 @@ impl ToPublicError for EconomyServiceError {
     }
 }
 
-#[async_trait::async_trait]
-pub trait EconomyService: Send + Sync + 'static {
-    async fn get_balance(&self, id: UserId) -> Result<i32, EconomyServiceError>;
-    async fn add_boonbucks(&self, id: UserId, amount: i32) -> Result<(), EconomyServiceError>;
-    async fn remove_boonbucks(&self, id: UserId, amount: i32) -> Result<(), EconomyServiceError>;
-    async fn transfer_boonbucks(
-        &self,
-        from_id: UserId,
-        to_id: UserId,
-        amount: i32,
-    ) -> Result<(), EconomyServiceError>;
+pub struct EconomyService {
+    user_repo: BaseRepository<entities::users::Entity>,
+    user_service: Arc<UserService>,
 }
 
-pub struct EconomyServiceImpl {
-    user_repo: Box<dyn UserRepository>,
-    user_service: Arc<dyn UserService>,
-}
-
-impl EconomyServiceImpl {
-    pub fn new(repo: Box<dyn UserRepository>, user_service: Arc<dyn UserService>) -> Self {
+impl EconomyService {
+    pub fn new(db: &AlwaysCloneableConnection, registry: &ServiceRegistry) -> Self {
         Self {
-            user_repo: repo,
-            user_service,
+            user_repo: BaseRepository::new(db),
+            user_service: registry.user_service(),
         }
     }
-}
 
-#[async_trait::async_trait]
-impl EconomyService for EconomyServiceImpl {
-    async fn get_balance(&self, id: UserId) -> Result<i32, EconomyServiceError> {
+    pub async fn get_balance(&self, id: UserId) -> Result<i32, EconomyServiceError> {
         let user = self.user_service.get_user(id).await?;
 
         Ok(user.boonbucks)
     }
 
-    async fn add_boonbucks(&self, id: UserId, amount: i32) -> Result<(), EconomyServiceError> {
+    pub async fn add_boonbucks(&self, id: UserId, amount: i32) -> Result<(), EconomyServiceError> {
         let user = self.user_service.get_user(id).await?;
 
         self.user_service
@@ -93,7 +81,11 @@ impl EconomyService for EconomyServiceImpl {
         Ok(())
     }
 
-    async fn remove_boonbucks(&self, id: UserId, amount: i32) -> Result<(), EconomyServiceError> {
+    pub async fn remove_boonbucks(
+        &self,
+        id: UserId,
+        amount: i32,
+    ) -> Result<(), EconomyServiceError> {
         let user = self.user_service.get_user(id).await?;
 
         self.user_service
@@ -103,7 +95,7 @@ impl EconomyService for EconomyServiceImpl {
         Ok(())
     }
 
-    async fn transfer_boonbucks(
+    pub async fn transfer_boonbucks(
         &self,
         from_id: UserId,
         to_id: UserId,

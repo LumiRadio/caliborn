@@ -1,41 +1,13 @@
 use sea_orm::{ActiveValue, TransactionTrait, prelude::*};
 
 use crate::{
-    entities,
-    repositories::{AlwaysCloneableConnection, RepositoryError},
+    entities, generate_dtos,
+    repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
 };
 
 /// A trait representing a repository for users.
 #[async_trait::async_trait]
-pub trait UserRepository: Send + Sync + 'static {
-    /// Find a user by their ID.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while retrieving the
-    /// user.
-    async fn find_by_id(&self, id: i64) -> Result<Option<entities::users::Model>, RepositoryError>;
-
-    /// Insert a new user into the database.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while inserting the
-    /// user.
-    async fn insert(&self, id: i64) -> Result<entities::users::Model, RepositoryError>;
-
-    /// Update an existing user.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while updating the
-    /// user.
-    async fn update(
-        &self,
-        id: i64,
-        params: entities::users::ActiveModel,
-    ) -> Result<entities::users::Model, RepositoryError>;
-
+pub trait UserRepositoryExt: Send + Sync + 'static {
     /// Find a user with their associated channels.
     ///
     /// # Errors
@@ -169,6 +141,67 @@ pub trait UserRepository: Send + Sync + 'static {
     }
 }
 
+generate_dtos!(
+    entities::users::Entity,
+    CreateUserDto {
+        id: i64
+    },
+    UpdateUserDto {
+        id: Option<i64>,
+        watched_time: Option<i64>,
+        boonbucks: Option<i32>,
+        migrated: Option<bool>,
+        username: Option<Option<String>>,
+        last_message_sent: Option<Option<DateTime>>,
+    }
+);
+
+#[derive(Default)]
+pub struct UserFilter {
+    id: Option<i64>,
+    username: Option<String>,
+    migrated: Option<bool>,
+    boonbucks: Option<i32>,
+    watched_time: Option<i64>,
+    last_message_sent: Option<Option<DateTime>>,
+}
+
+#[async_trait::async_trait]
+impl ApplyQueryFilter<entities::users::Entity> for UserFilter {
+    async fn apply(
+        &self,
+        query: Select<entities::users::Entity>,
+    ) -> Select<entities::users::Entity> {
+        let mut query = query;
+
+        if let Some(id) = self.id {
+            query = query.filter(entities::users::Column::Id.eq(id));
+        }
+
+        if let Some(username) = &self.username {
+            query = query.filter(entities::users::Column::Username.eq(username));
+        }
+
+        if let Some(migrated) = self.migrated {
+            query = query.filter(entities::users::Column::Migrated.eq(migrated));
+        }
+
+        if let Some(boonbucks) = self.boonbucks {
+            query = query.filter(entities::users::Column::Boonbucks.eq(boonbucks));
+        }
+
+        if let Some(watched_time) = self.watched_time {
+            query = query.filter(entities::users::Column::WatchedTime.eq(watched_time));
+        }
+
+        if let Some(last_message_sent) = self.last_message_sent {
+            query = query.filter(entities::users::Column::LastMessageSent.eq(last_message_sent));
+        }
+
+        query
+    }
+}
+
 pub struct UserToFavouriteSong;
 
 impl Linked for UserToFavouriteSong {
@@ -186,56 +219,8 @@ impl Linked for UserToFavouriteSong {
     }
 }
 
-/// A SeaORM implementation of the `UserRepository` trait.
-#[derive(Clone)]
-pub struct SeaOrmUserRepository {
-    /// The database connection
-    db: AlwaysCloneableConnection,
-}
-
-impl SeaOrmUserRepository {
-    /// Create a new instance of `SeaOrmUserRepository`.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - A reference to a SeaORM database connection.
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
-    }
-}
-
 #[async_trait::async_trait]
-impl UserRepository for SeaOrmUserRepository {
-    async fn find_by_id(&self, id: i64) -> Result<Option<entities::users::Model>, RepositoryError> {
-        entities::users::Entity::find_by_id(id)
-            .one(&self.db)
-            .await
-            .map_err(RepositoryError::from)
-    }
-
-    async fn insert(&self, id: i64) -> Result<entities::users::Model, RepositoryError> {
-        let user = entities::users::ActiveModel {
-            id: ActiveValue::set(id),
-            ..Default::default()
-        };
-
-        user.insert(&self.db).await.map_err(RepositoryError::from)
-    }
-
-    async fn update(
-        &self,
-        id: i64,
-        mut params: entities::users::ActiveModel,
-    ) -> Result<entities::users::Model, RepositoryError> {
-        params.id = ActiveValue::unchanged(id);
-
-        entities::users::Entity::update(params)
-            .filter(entities::users::Column::Id.eq(id))
-            .exec(&self.db)
-            .await
-            .map_err(RepositoryError::from)
-    }
-
+impl UserRepositoryExt for BaseRepository<entities::users::Entity> {
     async fn find_with_channels(
         &self,
         id: i64,
@@ -246,7 +231,7 @@ impl UserRepository for SeaOrmUserRepository {
         )>,
         RepositoryError,
     > {
-        let user = self.find_by_id(id).await?;
+        let user = self.read(id).await?;
 
         if let Some(user) = user {
             let channels = user
@@ -264,7 +249,7 @@ impl UserRepository for SeaOrmUserRepository {
         id: i64,
     ) -> Result<Option<(entities::users::Model, Vec<entities::songs::Model>)>, RepositoryError>
     {
-        let user = self.find_by_id(id).await?;
+        let user = self.read(id).await?;
 
         if let Some(user) = user {
             let favourites = user.find_linked(UserToFavouriteSong).all(&self.db).await?;
@@ -409,7 +394,7 @@ impl UserRepository for SeaOrmUserRepository {
         Ok(Some((api_key, user)))
     }
 
-    /// Transferts boonbucks from one user to another in a single atomic transaction.
+    /// Transfers boonbucks from one user to another in a single atomic transaction.
     ///
     /// # Note
     /// This method performs NO validation for:

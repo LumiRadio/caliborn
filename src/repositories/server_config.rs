@@ -1,95 +1,38 @@
-use sea_orm::{ActiveValue, prelude::*};
+use sea_orm::prelude::*;
 
-use crate::{
-    entities,
-    repositories::{AlwaysCloneableConnection, RepositoryError},
-};
+use crate::{entities, generate_dtos, repositories::ApplyQueryFilter};
 
-/// A trait representing a repository for server configurations.
-#[async_trait::async_trait]
-pub trait ServerConfigRepository: Send + Sync + 'static {
-    /// Find a server configuration by its ID.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while retrieving the
-    /// server configuration.
-    async fn find_by_id(
-        &self,
-        id: i64,
-    ) -> Result<Option<entities::server_config::Model>, RepositoryError>;
-
-    /// Insert a new server configuration into the database.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while inserting the
-    /// server configuration.
-    async fn insert(&self, id: i64) -> Result<entities::server_config::Model, RepositoryError>;
-
-    /// Update an existing server configuration.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `RepositoryError` if something goes wrong while updating the
-    /// server configuration.
-    async fn update(
-        &self,
-        id: i64,
-        params: entities::server_config::ActiveModel,
-    ) -> Result<entities::server_config::Model, RepositoryError>;
-}
-
-/// A SeaORM implementation of the `ServerConfigRepository` trait.
-pub struct SeaOrmServerConfigRepository {
-    db: AlwaysCloneableConnection,
-}
-
-impl SeaOrmServerConfigRepository {
-    /// Create a new instance of `SeaOrmServerConfigRepository`.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - A reference to a SeaORM database connection.
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
-        Self { db: db.clone() }
+generate_dtos!(
+    entities::server_config::Entity,
+    CreateServerConfigDto {
+        id: i64
+    },
+    UpdateServerConfigDto {
+        slot_jackpot: Option<i32>,
+        dice_roll: Option<i32>
     }
+);
+
+#[derive(Default)]
+pub struct ServerConfigFilter {
+    page: Option<u64>,
+    page_size: Option<u64>,
 }
 
 #[async_trait::async_trait]
-impl ServerConfigRepository for SeaOrmServerConfigRepository {
-    async fn find_by_id(
+impl ApplyQueryFilter<entities::server_config::Entity> for ServerConfigFilter {
+    async fn apply(
         &self,
-        id: i64,
-    ) -> Result<Option<entities::server_config::Model>, RepositoryError> {
-        entities::server_config::Entity::find_by_id(id)
-            .one(&self.db)
-            .await
-            .map_err(RepositoryError::from)
+        query: Select<entities::server_config::Entity>,
+    ) -> Select<entities::server_config::Entity> {
+        query
     }
 
-    async fn insert(&self, id: i64) -> Result<entities::server_config::Model, RepositoryError> {
-        let config = entities::server_config::ActiveModel {
-            id: ActiveValue::set(id),
-            dice_roll: ActiveValue::Set(111),
-            slot_jackpot: ActiveValue::Set(0),
-            ..Default::default()
-        };
-
-        config.insert(&self.db).await.map_err(RepositoryError::from)
+    fn page_size(&self) -> u64 {
+        self.page_size.unwrap_or(20)
     }
 
-    async fn update(
-        &self,
-        id: i64,
-        mut params: entities::server_config::ActiveModel,
-    ) -> Result<entities::server_config::Model, RepositoryError> {
-        params.id = ActiveValue::unchanged(id);
-
-        entities::server_config::Entity::update(params)
-            .filter(entities::server_config::Column::Id.eq(id))
-            .exec(&self.db)
-            .await
-            .map_err(RepositoryError::from)
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
     }
 }
