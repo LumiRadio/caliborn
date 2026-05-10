@@ -186,16 +186,66 @@ impl AuthService {
         let user_id = current_user.id.get();
 
         let claims = Claims::new(user_id.into(), expiration);
-        let token = claims
+        let jwt = claims
             .sign(&self.jwt_secret)
             .map_err(|_| AuthServiceError::InvalidJwtToken)?;
 
+        // Best-effort: pull Discord connections (requires `connections` scope on
+        // the original auth URL) and persist any YouTube channels. Failures
+        // here must not break login — they only mean the user didn't grant the
+        // scope or Discord is having a moment.
+        match self.fetch_discord_connections(token.secret()).await {
+            Ok(conns) => {
+                for conn in conns.into_iter().filter(|c| c.r#type == "youtube") {
+                    if let Err(e) = self
+                        .user_repo
+                        .upsert_youtube_account(user_id as i64, &conn.id, &conn.name)
+                        .await
+                    {
+                        tracing::warn!(
+                            user_id,
+                            error = ?e,
+                            "Failed to upsert YouTube connection"
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(user_id, error = ?e, "Failed to fetch Discord connections");
+            }
+        }
+
         Ok(UserToken {
-            token,
+            token: jwt,
             user_id,
             expires_in: expiration.num_seconds() as u64,
             expires_at: expires_at.timestamp() as u64,
         })
+    }
+
+    async fn fetch_discord_connections(
+        &self,
+        access_token: &str,
+    ) -> Result<Vec<DiscordConnection>, AuthServiceError> {
+        let response = self
+            .http_client
+            .get("https://discord.com/api/v10/users/@me/connections")
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(|e| AuthServiceError::OtherOAuthError(e.to_string()))?;
+
+        if !response.status().is_success() {
+            return Err(AuthServiceError::OtherOAuthError(format!(
+                "Discord connections endpoint returned {}",
+                response.status()
+            )));
+        }
+
+        response
+            .json::<Vec<DiscordConnection>>()
+            .await
+            .map_err(|e| AuthServiceError::OtherOAuthError(e.to_string()))
     }
 
     pub fn verify_token(&self, token: &str) -> Result<Claims, AuthServiceError> {
@@ -272,6 +322,17 @@ impl AuthService {
 
         Ok(())
     }
+}
+
+/// Subset of the Discord [Connection](https://discord.com/developers/docs/resources/user#connection-object) object that we need.
+#[derive(Deserialize, Debug, Clone)]
+struct DiscordConnection {
+    /// Connection's account id (e.g. YouTube channel id).
+    id: String,
+    /// Display name of the linked account.
+    name: String,
+    /// Connection type — `"youtube"`, `"twitch"`, etc.
+    r#type: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

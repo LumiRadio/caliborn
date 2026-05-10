@@ -171,6 +171,17 @@ pub trait UserRepositoryExt: Send + Sync + 'static {
         amount: i32,
     ) -> Result<(i32, i32), TransferError>;
 
+    /// Insert or update a YouTube channel link for a user.
+    ///
+    /// If a `(user_id, channel_id)` row already exists, its `channel_name`
+    /// is refreshed to match `channel_name`. Otherwise a new row is inserted.
+    async fn upsert_youtube_account(
+        &self,
+        user_id: i64,
+        channel_id: &str,
+        channel_name: &str,
+    ) -> Result<(), RepositoryError>;
+
     /// Atomically applies a minigame round: deducts `bet`, then credits
     /// `payout` (skipped when `payout == 0`).
     ///
@@ -507,6 +518,45 @@ impl UserRepositoryExt for BaseRepository<entities::users::Entity> {
                 sea_orm::TransactionError::Connection(db) => TransferError::Db(db),
                 sea_orm::TransactionError::Transaction(t) => t,
             })
+    }
+
+    async fn upsert_youtube_account(
+        &self,
+        user_id: i64,
+        channel_id: &str,
+        channel_name: &str,
+    ) -> Result<(), RepositoryError> {
+        let existing = entities::connected_youtube_accounts::Entity::find()
+            .filter(entities::connected_youtube_accounts::Column::UserId.eq(user_id))
+            .filter(entities::connected_youtube_accounts::Column::YoutubeChannelId.eq(channel_id))
+            .one(&self.db)
+            .await?;
+
+        if let Some(model) = existing {
+            if model.youtube_channel_name != channel_name {
+                entities::connected_youtube_accounts::Entity::update(
+                    entities::connected_youtube_accounts::ActiveModel {
+                        id: ActiveValue::unchanged(model.id),
+                        youtube_channel_name: ActiveValue::set(channel_name.to_string()),
+                        ..Default::default()
+                    },
+                )
+                .exec(&self.db)
+                .await?;
+            }
+            return Ok(());
+        }
+
+        entities::connected_youtube_accounts::ActiveModel {
+            user_id: ActiveValue::set(user_id),
+            youtube_channel_id: ActiveValue::set(channel_id.to_string()),
+            youtube_channel_name: ActiveValue::set(channel_name.to_string()),
+            ..Default::default()
+        }
+        .insert(&self.db)
+        .await?;
+
+        Ok(())
     }
 
     async fn apply_minigame_outcome(
