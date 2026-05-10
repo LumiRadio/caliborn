@@ -49,6 +49,7 @@ impl Modify for UserApiKeyAddon {
         crate::routes::cans::add_can,
         crate::routes::cans::get_can_count,
         crate::routes::minigames::dice_roll,
+        crate::routes::minigames::pvp_challenge,
         crate::routes::minigames::slots_spin,
         crate::routes::user::me,
         crate::routes::user::pay,

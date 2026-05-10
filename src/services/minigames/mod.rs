@@ -9,9 +9,11 @@ use crate::{
 };
 
 pub mod dice;
+pub mod pvp;
 pub mod slots;
 
 pub use dice::DiceService;
+pub use pvp::PvpService;
 pub use slots::SlotsService;
 
 /// Aggregator over per-game services so the registry exposes a single
@@ -19,6 +21,7 @@ pub use slots::SlotsService;
 pub struct MinigameService {
     pub slots: SlotsService,
     pub dice: DiceService,
+    pub pvp: PvpService,
 }
 
 impl MinigameService {
@@ -31,6 +34,12 @@ impl MinigameService {
                 registry.user_service(),
             ),
             dice: DiceService::new(db, registry.cooldown_service(), registry.user_service()),
+            pvp: PvpService::new(
+                BaseRepository::new(db),
+                BaseRepository::new(db),
+                registry.cooldown_service(),
+                registry.user_service(),
+            ),
         }
     }
 }

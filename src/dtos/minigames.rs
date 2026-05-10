@@ -7,7 +7,20 @@ use utoipa::ToSchema;
 use super::json;
 
 pub use crate::services::minigames::dice::RollResult as DiceRollResult;
+pub use crate::services::minigames::pvp::PvpResult;
 pub use crate::services::minigames::slots::{ReelSymbol, SlotSymbol, SpinResult};
+
+/// Request body for `POST /minigames/pvp`.
+#[derive(Deserialize, ToSchema)]
+#[schema(
+    description = "PvP duel request",
+    examples(json!({"opponent_id": 675674657_i64}))
+)]
+pub struct PvpChallengeRequest {
+    /// Discord user ID of the opponent.
+    #[schema(example = 675674657_i64)]
+    pub opponent_id: i64,
+}
 
 /// Request body for `POST /minigames/slots/spin`.
 #[derive(Deserialize, ToSchema)]
@@ -28,6 +41,12 @@ impl IntoResponse for SpinResult {
 }
 
 impl IntoResponse for DiceRollResult {
+    fn into_response(self) -> axum::response::Response {
+        json(self).into_response()
+    }
+}
+
+impl IntoResponse for PvpResult {
     fn into_response(self) -> axum::response::Response {
         json(self).into_response()
     }
