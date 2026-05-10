@@ -1,9 +1,22 @@
-use sea_orm::{ActiveValue, TransactionTrait, prelude::*};
+use sea_orm::{ActiveValue, QueryFilter, TransactionTrait, prelude::*, sea_query::Expr};
 
 use crate::{
     entities, generate_dtos,
     repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
 };
+
+/// Error returned by [`UserRepositoryExt::transfer_boonbucks`].
+#[derive(thiserror::Error, Debug)]
+pub enum TransferError {
+    #[error("Sender does not exist")]
+    SenderNotFound,
+    #[error("Recipient does not exist")]
+    RecipientNotFound,
+    #[error("Insufficient funds")]
+    InsufficientFunds,
+    #[error(transparent)]
+    Db(#[from] sea_orm::DbErr),
+}
 
 /// A trait representing a repository for users.
 #[async_trait::async_trait]
@@ -126,19 +139,26 @@ pub trait UserRepositoryExt: Send + Sync + 'static {
         key: &str,
     ) -> Result<Option<(entities::api_keys::Model, entities::users::Model)>, RepositoryError>;
 
-    /// Transfers boonbucks from one user to another
+    /// Atomically transfers `amount` boonbucks from `from_id` to `to_id`.
+    ///
+    /// Performs sufficient-funds and existence checks inside a single
+    /// transaction with row-level updates, so concurrent calls cannot
+    /// overdraw or race with each other.
+    ///
+    /// # Returns
+    /// `(sender_balance, recipient_balance)` after the transfer.
     ///
     /// # Errors
-    /// Returns an error if there is an issue with the database connection or
-    /// if the user is not found
+    /// - [`TransferError::SenderNotFound`] if `from_id` does not exist.
+    /// - [`TransferError::RecipientNotFound`] if `to_id` does not exist.
+    /// - [`TransferError::InsufficientFunds`] if the sender has fewer than `amount` boonbucks.
+    /// - [`TransferError::Db`] for any underlying database error.
     async fn transfer_boonbucks(
         &self,
-        _from_id: i64,
-        _to_id: i64,
-        _amount: i32,
-    ) -> Result<(), RepositoryError> {
-        unimplemented!()
-    }
+        from_id: i64,
+        to_id: i64,
+        amount: i32,
+    ) -> Result<(i32, i32), TransferError>;
 }
 
 generate_dtos!(
@@ -394,55 +414,70 @@ impl UserRepositoryExt for BaseRepository<entities::users::Entity> {
         Ok(Some((api_key, user)))
     }
 
-    /// Transfers boonbucks from one user to another in a single atomic transaction.
-    ///
-    /// # Note
-    /// This method performs NO validation for:
-    /// - Sufficient funds in the source account
-    /// - Positive amount value
-    /// - User existence
-    ///
-    /// The calling service is responsible for all business rule validations.
-    /// This method only ensures the transfer happens atomically.
     async fn transfer_boonbucks(
         &self,
         from_id: i64,
         to_id: i64,
         amount: i32,
-    ) -> Result<(), RepositoryError> {
+    ) -> Result<(i32, i32), TransferError> {
         self.db
-            .transaction(|txn| {
+            .transaction::<_, (i32, i32), TransferError>(|txn| {
                 Box::pin(async move {
-                    let from_user = entities::users::Entity::find_by_id(from_id)
+                    let from_update = entities::users::Entity::update_many()
+                        .col_expr(
+                            entities::users::Column::Boonbucks,
+                            Expr::col(entities::users::Column::Boonbucks).sub(amount),
+                        )
+                        .filter(entities::users::Column::Id.eq(from_id))
+                        .filter(entities::users::Column::Boonbucks.gte(amount))
+                        .exec(txn)
+                        .await
+                        .map_err(TransferError::Db)?;
+
+                    if from_update.rows_affected == 0 {
+                        let exists = entities::users::Entity::find_by_id(from_id)
+                            .count(txn)
+                            .await
+                            .map_err(TransferError::Db)?;
+                        return if exists == 0 {
+                            Err(TransferError::SenderNotFound)
+                        } else {
+                            Err(TransferError::InsufficientFunds)
+                        };
+                    }
+
+                    let to_update = entities::users::Entity::update_many()
+                        .col_expr(
+                            entities::users::Column::Boonbucks,
+                            Expr::col(entities::users::Column::Boonbucks).add(amount),
+                        )
+                        .filter(entities::users::Column::Id.eq(to_id))
+                        .exec(txn)
+                        .await
+                        .map_err(TransferError::Db)?;
+
+                    if to_update.rows_affected == 0 {
+                        return Err(TransferError::RecipientNotFound);
+                    }
+
+                    let from = entities::users::Entity::find_by_id(from_id)
                         .one(txn)
-                        .await?
-                        .ok_or(DbErr::RecordNotFound("User not found".to_string()))?;
-
-                    let to_user = entities::users::Entity::find_by_id(to_id)
+                        .await
+                        .map_err(TransferError::Db)?
+                        .ok_or(TransferError::SenderNotFound)?;
+                    let to = entities::users::Entity::find_by_id(to_id)
                         .one(txn)
-                        .await?
-                        .ok_or(DbErr::RecordNotFound("User not found".to_string()))?;
+                        .await
+                        .map_err(TransferError::Db)?
+                        .ok_or(TransferError::RecipientNotFound)?;
 
-                    entities::users::Entity::update(entities::users::ActiveModel {
-                        id: ActiveValue::unchanged(from_id),
-                        boonbucks: ActiveValue::set(from_user.boonbucks - amount),
-                        ..Default::default()
-                    })
-                    .exec(txn)
-                    .await?;
-
-                    entities::users::Entity::update(entities::users::ActiveModel {
-                        id: ActiveValue::unchanged(to_id),
-                        boonbucks: ActiveValue::set(to_user.boonbucks + amount),
-                        ..Default::default()
-                    })
-                    .exec(txn)
-                    .await?;
-
-                    Result::<_, DbErr>::Ok(())
+                    Ok((from.boonbucks, to.boonbucks))
                 })
             })
             .await
-            .map_err(RepositoryError::from)
+            .map_err(|e| match e {
+                sea_orm::TransactionError::Connection(db) => TransferError::Db(db),
+                sea_orm::TransactionError::Transaction(t) => t,
+            })
     }
 }

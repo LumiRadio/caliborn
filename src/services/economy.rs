@@ -7,7 +7,8 @@ use crate::{
     dtos::error::{PublicError, ToPublicError},
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository, RepositoryError, users::UserRepositoryExt,
+        AlwaysCloneableConnection, BaseRepository, RepositoryError,
+        users::{TransferError, UserRepositoryExt},
     },
     services::users::{UserService, UserServiceError},
 };
@@ -16,8 +17,12 @@ use super::UserId;
 
 #[derive(thiserror::Error, Debug)]
 pub enum EconomyServiceError {
+    #[error("Sender not found")]
+    SenderNotFound,
     #[error("Target user not found")]
     TargetUserNotFound,
+    #[error("Cannot pay yourself")]
+    SelfTransfer,
     #[error("Invalid amount")]
     InvalidAmount,
     #[error("Insufficient funds")]
@@ -28,12 +33,33 @@ pub enum EconomyServiceError {
     UserService(#[from] UserServiceError),
 }
 
+impl From<TransferError> for EconomyServiceError {
+    fn from(value: TransferError) -> Self {
+        match value {
+            TransferError::SenderNotFound => EconomyServiceError::SenderNotFound,
+            TransferError::RecipientNotFound => EconomyServiceError::TargetUserNotFound,
+            TransferError::InsufficientFunds => EconomyServiceError::InsufficientFunds,
+            TransferError::Db(e) => EconomyServiceError::Repository(RepositoryError::from(e)),
+        }
+    }
+}
+
 impl ToPublicError for EconomyServiceError {
     fn as_public(&self) -> Option<PublicError> {
         match self {
+            EconomyServiceError::SenderNotFound => Some(PublicError::new(
+                "sender-not-found",
+                "The sending user was not found.",
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )),
             EconomyServiceError::TargetUserNotFound => Some(PublicError::new(
                 "user-not-found",
                 "The target user was not found.",
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )),
+            EconomyServiceError::SelfTransfer => Some(PublicError::new(
+                "self-transfer",
+                "You cannot transfer boonbucks to yourself.",
                 StatusCode::UNPROCESSABLE_ENTITY,
             )),
             EconomyServiceError::InvalidAmount => Some(PublicError::new(
@@ -95,25 +121,45 @@ impl EconomyService {
         Ok(())
     }
 
+    /// Atomically transfers `amount` boonbucks from `from_id` to `to_id`.
+    ///
+    /// Returns `(sender_balance, recipient_balance)` after the transfer.
     pub async fn transfer_boonbucks(
         &self,
         from_id: UserId,
         to_id: UserId,
         amount: i32,
-    ) -> Result<(), EconomyServiceError> {
+    ) -> Result<(i32, i32), EconomyServiceError> {
         if amount <= 0 {
             return Err(EconomyServiceError::InvalidAmount);
         }
 
-        let balance_from = self.get_balance(from_id).await?;
-        if balance_from < amount {
-            return Err(EconomyServiceError::InsufficientFunds);
-        }
-
-        self.user_repo
+        let balances = self
+            .user_repo
             .transfer_boonbucks(from_id.into(), to_id.into(), amount)
             .await?;
 
-        Ok(())
+        Ok(balances)
+    }
+
+    /// User-initiated payment between two distinct users.
+    ///
+    /// Wraps [`Self::transfer_boonbucks`] with a self-pay rejection and
+    /// ensures the recipient row exists before the transfer.
+    pub async fn pay(
+        &self,
+        from_id: UserId,
+        to_id: UserId,
+        amount: i32,
+    ) -> Result<(i32, i32), EconomyServiceError> {
+        if Into::<i64>::into(from_id) == Into::<i64>::into(to_id) {
+            return Err(EconomyServiceError::SelfTransfer);
+        }
+
+        // Ensure both users exist (creates rows if missing — matches existing service semantics).
+        self.user_service.get_user(from_id).await?;
+        self.user_service.get_user(to_id).await?;
+
+        self.transfer_boonbucks(from_id, to_id, amount).await
     }
 }

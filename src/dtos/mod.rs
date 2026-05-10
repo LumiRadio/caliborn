@@ -42,6 +42,7 @@ use crate::dtos::error::CalibornResult;
 
 pub mod auth;
 pub mod cans;
+pub mod economy;
 pub mod error;
 pub mod page;
 pub mod songs;

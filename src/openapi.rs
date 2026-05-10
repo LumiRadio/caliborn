@@ -48,6 +48,8 @@ impl Modify for UserApiKeyAddon {
         crate::routes::bears::get_bear_count,
         crate::routes::cans::add_can,
         crate::routes::cans::get_can_count,
+        crate::routes::user::me,
+        crate::routes::user::pay,
     )
 )]
 pub struct ApiDoc;
