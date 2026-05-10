@@ -58,12 +58,20 @@ pub struct Config {
     pub jwt: JwtConfig,
     pub database_url: String,
     pub liquidsoap_socket: PathBuf,
+    /// Shared secret Liquidsoap sends in `X-Liquidsoap-Token` on
+    /// `POST /playback/played`. Sourced from the singly-prefixed
+    /// `CALIBORN_LIQUIDSOAP_TOKEN` env var (kept single-underscore for
+    /// deploy continuity; nested figment keys use double underscore).
+    pub liquidsoap_ingest_token: String,
 }
 
 impl Config {
     pub fn new() -> figment::Result<Self> {
         figment::Figment::new()
             .merge(figment::providers::Env::prefixed("CALIBORN__").split("__"))
+            .merge(figment::providers::Env::raw().filter_map(|k| {
+                (k == "CALIBORN_LIQUIDSOAP_TOKEN").then(|| "liquidsoap_ingest_token".into())
+            }))
             .extract()
     }
 }

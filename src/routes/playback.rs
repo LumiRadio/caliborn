@@ -1,6 +1,7 @@
 //! Inbound `/playback/played` endpoint, called by Liquidsoap when a song
 //! starts playing. Authenticated via the `X-Liquidsoap-Token` header against
-//! the `CALIBORN_LIQUIDSOAP_TOKEN` environment variable.
+//! the `liquidsoap_ingest_token` configured at startup (sourced from
+//! `CALIBORN_LIQUIDSOAP_TOKEN`).
 
 use axum::{
     Router,
@@ -20,15 +21,8 @@ use crate::{
 };
 
 const TOKEN_HEADER: &str = "x-liquidsoap-token";
-const TOKEN_ENV: &str = "CALIBORN_LIQUIDSOAP_TOKEN";
 
-fn check_token(headers: &HeaderMap) -> Result<(), ApiError> {
-    let configured = std::env::var(TOKEN_ENV).map_err(|_| {
-        ApiError::Internal(anyhow::anyhow!(
-            "{TOKEN_ENV} not set; /playback/played is disabled"
-        ))
-    })?;
-
+fn check_token(headers: &HeaderMap, configured: &str) -> Result<(), ApiError> {
     let provided = headers
         .get(TOKEN_HEADER)
         .and_then(|v| v.to_str().ok())
@@ -68,7 +62,7 @@ pub async fn played(
     headers: HeaderMap,
     Json(req): Json<PlayedRequest>,
 ) -> CalibornResult<PlayedResponse> {
-    check_token(&headers)?;
+    check_token(&headers, &state.liquidsoap_ingest_token)?;
 
     let played_at = state
         .service_registry

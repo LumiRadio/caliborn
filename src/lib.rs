@@ -61,6 +61,10 @@ pub type DiscordOAuthClient = oauth2::basic::BasicClient<
 pub struct AppState {
     /// A registry of services, which provides access to the services used by the application.
     pub service_registry: ServiceRegistry,
+    /// Shared secret Liquidsoap sends in `X-Liquidsoap-Token` on
+    /// `POST /playback/played`. Validated at startup via `Config`, not at
+    /// request time.
+    pub liquidsoap_ingest_token: Arc<str>,
 }
 
 /// Builds a Discord OAuth client.
@@ -109,6 +113,7 @@ pub fn make_app(
     discord_application_id: String,
     linked_roles_platform_name: String,
     token_sealer: Arc<TokenSealer>,
+    liquidsoap_ingest_token: Arc<str>,
 ) -> axum::Router {
     let broadcaster = Broadcaster::new();
     let app_state = AppState {
@@ -123,6 +128,7 @@ pub fn make_app(
             linked_roles_platform_name,
             token_sealer,
         ),
+        liquidsoap_ingest_token,
     };
 
     let router = Router::new()

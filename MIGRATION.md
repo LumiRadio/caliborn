@@ -24,7 +24,7 @@ Caliborn reads config from environment variables prefixed with `CALIBORN__`
 | `CALIBORN__DISCORD__REDIRECT_URI` | `serve` | Calliope's OAuth redirect URI. |
 | `CALIBORN__LIQUIDSOAP_SOCKET` | `serve` | Path to the Liquidsoap unix socket. |
 | `CALIBORN_TOKEN_ENCRYPTION_KEY` | `serve` | **64 hex chars (32 bytes)**. AES-GCM master key for OAuth-token storage. Generate with `openssl rand -hex 32`. **Do not lose this** — losing it invalidates every stored refresh token. |
-| `CALIBORN_LIQUIDSOAP_TOKEN` | `serve` | Shared secret Liquidsoap sends in `X-Liquidsoap-Token` on `POST /playback/played`. Generate with `openssl rand -hex 32`. |
+| `CALIBORN_LIQUIDSOAP_TOKEN` | `serve` | Shared secret Liquidsoap sends in `X-Liquidsoap-Token` on `POST /playback/played`. Generate with `openssl rand -hex 32`. Validated at startup — `serve` refuses to boot if it's unset. |
 | `CALIBORN_DISCORD_BOT_TOKEN` | `linked-roles register` only | Discord bot token. Used once for schema registration. |
 
 ### Calliope (frontend) authorization-URL scopes

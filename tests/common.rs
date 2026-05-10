@@ -120,6 +120,7 @@ pub async fn app(
                 )
                 .unwrap(),
             ),
+            std::sync::Arc::<str>::from("test_liquidsoap_token"),
         ),
         container,
     )
