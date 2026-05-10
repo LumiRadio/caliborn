@@ -7,7 +7,7 @@
 //!
 //! ```rust
 //! # use caliborn::dtos::users::UserDto;
-//! # use chrono::NaiveDateTime;
+//! # use chrono::{DateTime, Utc};
 //! let user = UserDto {
 //!     id: 675674657,
 //!     watched_time: 1234567890,
@@ -15,13 +15,13 @@
 //!     username: Some(String::from("Caliborn")),
 //!     last_message_sent: None,
 //!     migrated: true,
-//!     created_at: NaiveDateTime::parse_from_str("2023-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-//!     updated_at: NaiveDateTime::parse_from_str("2023-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+//!     created_at: DateTime::<Utc>::from_timestamp(1672531200, 0).unwrap(),
+//!     updated_at: DateTime::<Utc>::from_timestamp(1672531200, 0).unwrap(),
 //! };
 //! ```
 
 use axum::response::IntoResponse;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -39,7 +39,7 @@ use super::json;
 ///
 /// ```rust
 /// # use caliborn::dtos::users::UserDto;
-/// # use chrono::NaiveDateTime;
+/// # use chrono::{DateTime, Utc};
 /// let user = UserDto {
 ///     id: 675674657,
 ///     watched_time: 1234567890,
@@ -47,8 +47,8 @@ use super::json;
 ///     username: Some(String::from("Caliborn")),
 ///     last_message_sent: None,
 ///     migrated: true,
-///     created_at: NaiveDateTime::parse_from_str("2023-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-///     updated_at: NaiveDateTime::parse_from_str("2023-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+///     created_at: DateTime::<Utc>::from_timestamp(1672531200, 0).unwrap(),
+///     updated_at: DateTime::<Utc>::from_timestamp(1672531200, 0).unwrap(),
 /// };
 /// ```
 #[derive(Serialize, ToSchema)]
@@ -60,57 +60,57 @@ use super::json;
             "watched_time": 1234567890,
             "boonbucks": 100,
             "username": "Caliborn",
-            "last_message_sent": "2023-01-01T00:00:00",
+            "last_message_sent": "2023-01-01T00:00:00Z",
             "migrated": true,
-            "created_at": "2023-01-01T00:00:00",
-            "updated_at": "2023-01-01T00:00:00"
+            "created_at": "2023-01-01T00:00:00Z",
+            "updated_at": "2023-01-01T00:00:00Z"
         })
     )
 )]
 pub struct UserDto {
     /// The unique identifier of the user.
-    #[schema(example = 675674657)]
+    #[schema(examples(675674657))]
     pub id: i64,
 
     /// The total watched time of the user, in seconds.
     ///
     /// This represents the cumulative time the user has spent watching content
     /// on the lumiRadio platform.
-    #[schema(example = 1234567890)]
+    #[schema(examples(1234567890))]
     pub watched_time: i64,
 
     /// The amount of boonbucks (virtual currency) the user has accumulated.
     ///
     /// Boonbucks can be earned through various activities on the platform and
     /// can be used for purchases or interactions.
-    #[schema(example = 100)]
+    #[schema(examples(100))]
     pub boonbucks: i32,
 
     /// The username of the user, if they have set one.
     ///
     /// This is `None` if the user has not set a username yet.
-    #[schema(example = "Caliborn")]
+    #[schema(examples("Caliborn"))]
     pub username: Option<String>,
 
     /// The timestamp of the last message sent by the user.
     ///
     /// This is `None` if the user has never sent a message.
-    #[schema(example = "2023-01-01T00:00:00")]
-    pub last_message_sent: Option<NaiveDateTime>,
+    #[schema(examples("2023-01-01T00:00:00Z"))]
+    pub last_message_sent: Option<DateTime<Utc>>,
 
     /// Whether the user has migrated their data from the old radio bot.
     ///
     /// This is `true` if the user has migrated their data from the old radio bot.
-    #[schema(example = true)]
+    #[schema(examples(true))]
     pub migrated: bool,
 
     /// The timestamp when the user account was created.
-    #[schema(example = "2023-01-01T00:00:00")]
-    pub created_at: NaiveDateTime,
+    #[schema(examples("2023-01-01T00:00:00Z"))]
+    pub created_at: DateTime<Utc>,
 
     /// The timestamp when the user account was last updated.
-    #[schema(example = "2023-01-01T00:00:00")]
-    pub updated_at: NaiveDateTime,
+    #[schema(examples("2023-01-01T00:00:00Z"))]
+    pub updated_at: DateTime<Utc>,
 }
 
 impl IntoResponse for UserDto {
@@ -129,16 +129,16 @@ impl IntoResponse for UserDto {
 /// ```rust
 /// # use caliborn::dtos::users::UserDto;
 /// # use caliborn::entities;
-/// # use chrono::NaiveDateTime;
+/// # use chrono::{DateTime, Utc};
 /// # struct MockModel {
 /// #     id: i64,
 /// #     watched_time: i64,
 /// #     boonbucks: i32,
 /// #     username: Option<String>,
-/// #     last_message_sent: Option<NaiveDateTime>,
+/// #     last_message_sent: Option<DateTime<Utc>>,
 /// #     migrated: bool,
-/// #     created_at: NaiveDateTime,
-/// #     updated_at: NaiveDateTime,
+/// #     created_at: DateTime<Utc>,
+/// #     updated_at: DateTime<Utc>,
 /// # }
 /// # impl From<MockModel> for entities::users::Model {
 /// #     fn from(m: MockModel) -> Self { todo!() }
@@ -150,8 +150,8 @@ impl IntoResponse for UserDto {
 /// #     username: Some(String::from("User1")),
 /// #     last_message_sent: None,
 /// #     migrated: false,
-/// #     created_at: NaiveDateTime::parse_from_str("2023-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-/// #     updated_at: NaiveDateTime::parse_from_str("2023-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+/// #     created_at: DateTime::<Utc>::from_timestamp(1672531200, 0).unwrap(),
+/// #     updated_at: DateTime::<Utc>::from_timestamp(1672531200, 0).unwrap(),
 /// # };
 /// // When fetching a user from the database
 /// // let db_model = fetch_user_from_db(user_id).await?;
@@ -166,10 +166,10 @@ impl From<entities::users::Model> for UserDto {
             watched_time: value.watched_time,
             boonbucks: value.boonbucks,
             username: value.username,
-            last_message_sent: value.last_message_sent,
+            last_message_sent: value.last_message_sent.map(|d| d.and_utc()),
             migrated: value.migrated,
-            created_at: value.created_at,
-            updated_at: value.updated_at,
+            created_at: value.created_at.and_utc(),
+            updated_at: value.updated_at.and_utc(),
         }
     }
 }

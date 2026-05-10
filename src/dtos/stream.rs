@@ -1,7 +1,7 @@
 //! Stream control + playback ingest data transfer objects.
 
 use axum::response::IntoResponse;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -11,7 +11,7 @@ use super::json;
 #[schema(examples(json!({"level": 0.6})))]
 pub struct VolumeRequest {
     /// Level in `[0.0, 1.0]`.
-    #[schema(example = 0.6, minimum = 0.0, maximum = 1.0)]
+    #[schema(examples(0.6), minimum = 0.0, maximum = 1.0)]
     pub level: f32,
 }
 
@@ -58,9 +58,9 @@ pub struct PlayedRequest {
 }
 
 #[derive(Serialize, ToSchema)]
-#[schema(examples(json!({"played_at": "2026-05-10T12:34:56"})))]
+#[schema(examples(json!({"played_at": "2026-05-10T12:34:56Z"})))]
 pub struct PlayedResponse {
-    pub played_at: NaiveDateTime,
+    pub played_at: DateTime<Utc>,
 }
 
 impl IntoResponse for PlayedResponse {

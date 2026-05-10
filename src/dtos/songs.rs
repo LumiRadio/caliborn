@@ -1,5 +1,5 @@
 use axum::response::IntoResponse;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
@@ -53,10 +53,10 @@ impl IntoResponse for SongListDto {
 pub struct PlayInfo {
     pub play_count: i32,
     pub request_count: i32,
-    pub last_played_at: NaiveDateTime,
-    pub last_requested_at: NaiveDateTime,
+    pub last_played_at: DateTime<Utc>,
+    pub last_requested_at: DateTime<Utc>,
     pub on_cooldown: bool,
-    pub cooldown_expires_at: NaiveDateTime,
+    pub cooldown_expires_at: DateTime<Utc>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -75,8 +75,8 @@ impl SongWithPlayInfo {
 
 #[derive(Serialize, ToSchema)]
 pub struct CooldownInfo {
-    pub user_cooldown_expires_at: NaiveDateTime,
-    pub song_cooldown_expires_at: NaiveDateTime,
+    pub user_cooldown_expires_at: DateTime<Utc>,
+    pub song_cooldown_expires_at: DateTime<Utc>,
 }
 
 #[derive(Serialize, ToSchema)]

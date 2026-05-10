@@ -5,7 +5,7 @@
 //! receive a fan-out copy of every event published while their receiver is
 //! alive. Lagged subscribers drop the oldest events.
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use tokio::sync::broadcast;
 
@@ -19,7 +19,7 @@ pub enum Event {
         title: Option<String>,
         artist: Option<String>,
         album: Option<String>,
-        played_at: NaiveDateTime,
+        played_at: DateTime<Utc>,
     },
     QueueUpdated,
 }

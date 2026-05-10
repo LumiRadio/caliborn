@@ -120,7 +120,7 @@ impl UserService {
         let user = self.get_user(id).await?;
         let now = Utc::now().naive_utc();
         let time_diff = if let Some(last_message_sent) = user.last_message_sent {
-            now - last_message_sent
+            now - last_message_sent.naive_utc()
         } else {
             TimeDelta::zero()
         };
@@ -225,8 +225,8 @@ impl UserService {
                 .collect(),
             role: user.role,
             permissions,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
+            created_at: user.created_at.and_utc(),
+            updated_at: user.updated_at.and_utc(),
         })
     }
 

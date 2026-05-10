@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use reqwest::StatusCode;
 use sea_orm::{ActiveValue, EntityTrait, QueryFilter, prelude::*, sea_query::Expr};
 use tokio::sync::Mutex;
@@ -150,12 +150,12 @@ impl StreamService {
         title: Option<String>,
         artist: Option<String>,
         album: Option<String>,
-    ) -> Result<NaiveDateTime, StreamServiceError> {
-        let played_at = Utc::now().naive_utc();
+    ) -> Result<DateTime<Utc>, StreamServiceError> {
+        let played_at = Utc::now();
 
         entities::played_songs::Entity::insert(entities::played_songs::ActiveModel {
             song_id: ActiveValue::set(file_path.to_string()),
-            played_at: ActiveValue::set(played_at),
+            played_at: ActiveValue::set(played_at.naive_utc()),
             ..Default::default()
         })
         .exec(&*self.db)

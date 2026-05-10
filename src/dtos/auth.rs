@@ -52,18 +52,18 @@ use super::json;
 pub struct UserToken {
     /// An access token which can be used to authenticate to other endpoints.
     /// This is a JWT token containing the user's identity information.
-    #[schema(
-        example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2NzU3NjQ3NjUsImlhdCI6MTY4MjM3NDQyMiwiZXhwIjoxNjgyMzgyNDIyfQ.QUQ0z3O9TqYUv4JzL9Vq7Z0T2Zr4xJnNzK4yRfGpPZ"
-    )]
+    #[schema(examples(
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2NzU3NjQ3NjUsImlhdCI6MTY4MjM3NDQyMiwiZXhwIjoxNjgyMzgyNDIyfQ.QUQ0z3O9TqYUv4JzL9Vq7Z0T2Zr4xJnNzK4yRfGpPZ"
+    ))]
     pub token: String,
     /// The ID of the user who was logged in.
-    #[schema(example = 675674657)]
+    #[schema(examples(675674657))]
     pub user_id: u64,
     /// The time in seconds until the access token expires.
-    #[schema(example = 3600)]
+    #[schema(examples(3600))]
     pub expires_in: u64,
     /// The timestamp when the access token expires.
-    #[schema(example = 1682384222)]
+    #[schema(examples(1682384222))]
     pub expires_at: u64,
 }
 
@@ -105,10 +105,10 @@ impl IntoResponse for UserToken {
 )]
 pub struct ApiKeyDto {
     /// The API key value in its complete form.
-    #[schema(example = "ak_BRTRKFsL_51FwqftsmMDHHbJAMEXXHCgG")]
+    #[schema(examples("ak_BRTRKFsL_51FwqftsmMDHHbJAMEXXHCgG"))]
     pub api_key: String,
     /// A user-provided description of the API key.
-    #[schema(example = "My API key")]
+    #[schema(examples("My API key"))]
     pub description: String,
 }
 

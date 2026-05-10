@@ -1,7 +1,7 @@
 //! User profile DTO returned by `GET /user/me/profile` and `GET /user/{id}/profile`.
 
 use axum::response::IntoResponse;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -32,8 +32,8 @@ pub struct ConnectedYoutubeAccountDto {
         "connected_youtube_accounts": [],
         "role": "user",
         "permissions": ["use_minigames", "use_web_chat", "use_bot"],
-        "created_at": "2023-01-01T00:00:00",
-        "updated_at": "2023-01-01T00:00:00"
+        "created_at": "2023-01-01T00:00:00Z",
+        "updated_at": "2023-01-01T00:00:00Z"
     }))
 )]
 pub struct ProfileDto {
@@ -55,8 +55,8 @@ pub struct ProfileDto {
     pub role: String,
     /// Effective permissions (role grants + per-user grants − per-user revokes).
     pub permissions: Vec<String>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl IntoResponse for ProfileDto {

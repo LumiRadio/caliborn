@@ -18,7 +18,7 @@ pub use crate::services::minigames::slots::{ReelSymbol, SlotSymbol, SpinResult};
 )]
 pub struct PvpChallengeRequest {
     /// Discord user ID of the opponent.
-    #[schema(example = 675674657_i64)]
+    #[schema(examples(675674657_i64))]
     pub opponent_id: i64,
 }
 
@@ -30,7 +30,7 @@ pub struct PvpChallengeRequest {
 )]
 pub struct SlotsSpinRequest {
     /// Wager in boonbucks. Must be between 1 and 10 inclusive.
-    #[schema(example = 5, minimum = 1, maximum = 10)]
+    #[schema(examples(5), minimum = 1, maximum = 10)]
     pub bet: i32,
 }
 

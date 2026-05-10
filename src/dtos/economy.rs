@@ -14,11 +14,11 @@ use super::json;
 )]
 pub struct PayRequest {
     /// Discord user ID of the recipient.
-    #[schema(example = 675674657_i64)]
+    #[schema(examples(675674657_i64))]
     pub recipient_id: i64,
 
     /// Amount of boonbucks to send. Must be > 0.
-    #[schema(example = 50)]
+    #[schema(examples(50))]
     pub amount: i32,
 }
 

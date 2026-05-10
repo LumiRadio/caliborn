@@ -203,7 +203,7 @@ impl SongService {
             })
             .await?;
 
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
         let cooldown_info = CooldownInfo {
             user_cooldown_expires_at: now + cooldown.duration(),
             song_cooldown_expires_at: now + song_cooldown.duration(),
