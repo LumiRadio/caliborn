@@ -161,6 +161,12 @@ where
         }
     }
 
+    /// Cheap clone of the underlying connection handle, for callers that
+    /// need to run raw queries the repository methods don't cover.
+    pub fn db_handle(&self) -> AlwaysCloneableConnection {
+        self.db.clone()
+    }
+
     /// Browse entities with a given filter
     ///
     /// # Arguments

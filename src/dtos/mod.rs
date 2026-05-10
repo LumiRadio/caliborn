@@ -46,6 +46,7 @@ pub mod economy;
 pub mod error;
 pub mod minigames;
 pub mod page;
+pub mod profile;
 pub mod songs;
 pub mod stream;
 pub mod users;

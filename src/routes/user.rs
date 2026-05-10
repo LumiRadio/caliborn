@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    extract::State,
+    extract::{Path, State},
     routing::{get, post},
 };
 
@@ -10,6 +10,7 @@ use crate::{
         Json,
         economy::{PayRequest, PayResponse},
         error::{CalibornResult, ErrorResponse},
+        profile::ProfileDto,
         users::UserDto,
     },
     services::auth::{AuthenticatedUser, authenticate},
@@ -125,10 +126,59 @@ pub async fn sync_linked_role(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    get,
+    path = "/user/me/profile",
+    responses(
+        (status = 200, description = "Aggregated profile for the authenticated user", body = ProfileDto),
+        (status = 401, body = ErrorResponse),
+        (status = 500, body = ErrorResponse)
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
+#[axum::debug_handler]
+pub async fn my_profile(
+    AuthenticatedUser(actor): AuthenticatedUser,
+    State(state): State<AppState>,
+) -> CalibornResult<ProfileDto> {
+    let profile = state
+        .service_registry
+        .user_service()
+        .get_profile(actor.user_id())
+        .await?;
+    Ok(profile)
+}
+
+#[utoipa::path(
+    get,
+    path = "/user/{id}/profile",
+    responses(
+        (status = 200, description = "Aggregated profile for the requested user", body = ProfileDto),
+        (status = 401, body = ErrorResponse),
+        (status = 500, body = ErrorResponse)
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
+#[axum::debug_handler]
+pub async fn user_profile(
+    _actor: AuthenticatedUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> CalibornResult<ProfileDto> {
+    let profile = state
+        .service_registry
+        .user_service()
+        .get_profile(id.into())
+        .await?;
+    Ok(profile)
+}
+
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/me", get(me))
+        .route("/me/profile", get(my_profile))
         .route("/me/pay", post(pay))
         .route("/me/sync-linked-role", post(sync_linked_role))
+        .route("/{id}/profile", get(user_profile))
         .layer(axum::middleware::from_fn_with_state(state, authenticate))
 }
