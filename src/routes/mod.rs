@@ -14,3 +14,5 @@ pub mod songs;
 pub mod stream;
 /// User routes
 pub mod user;
+/// WebSocket realtime endpoint
+pub mod ws;
