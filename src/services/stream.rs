@@ -20,7 +20,6 @@ use crate::{
 /// hunting through call sites.
 mod cmds {
     pub const SKIP: &str = "request.skip";
-    pub const PLAYLIST_RELOAD: &str = "playlist.m3u.reload";
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -78,6 +77,7 @@ pub struct StreamService {
     db: AlwaysCloneableConnection,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     broadcaster: Broadcaster,
+    playlist_source: String,
 }
 
 impl StreamService {
@@ -85,11 +85,13 @@ impl StreamService {
         db: &AlwaysCloneableConnection,
         liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
         broadcaster: Broadcaster,
+        playlist_source: String,
     ) -> Self {
         Self {
             db: db.clone(),
             liquidsoap_client,
             broadcaster,
+            playlist_source,
         }
     }
 
@@ -128,7 +130,7 @@ impl StreamService {
     }
 
     pub async fn reload_playlist(&self) -> Result<LiquidsoapResponse, StreamServiceError> {
-        self.send(cmds::PLAYLIST_RELOAD).await
+        self.send(&format!("{}.reload", self.playlist_source)).await
     }
 
     pub async fn raw(&self, command: &str) -> Result<LiquidsoapResponse, StreamServiceError> {

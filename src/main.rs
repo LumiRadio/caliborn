@@ -191,6 +191,7 @@ async fn serve(config: Config) -> Result<(), ApplicationError> {
         "LumiRadio".to_string(),
         token_sealer,
         Arc::<str>::from(config.liquidsoap_ingest_token),
+        config.liquidsoap_playlist_source.clone(),
     );
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
         .await
@@ -311,8 +312,9 @@ async fn playlist_cmd(config: Config, out: PathBuf, reload: bool) -> Result<(), 
     if reload {
         use caliborn::liquidsoap::LiquidsoapClient as _;
         let mut client = LiquidsoapClientImpl::new(&config.liquidsoap_socket).await?;
-        let response = client.command_with_reconnect("playlist.reload").await?;
-        tracing::info!("Liquidsoap playlist.reload -> {}", response.trim());
+        let cmd = format!("{}.reload", config.liquidsoap_playlist_source);
+        let response = client.command_with_reconnect(&cmd).await?;
+        tracing::info!("Liquidsoap {} -> {}", cmd, response.trim());
         client.shutdown().await?;
     }
 

@@ -117,6 +117,76 @@ pub async fn import_records(
     Ok(summary)
 }
 
+/// Match a single user's linked YouTube channels against `slcb_currency`
+/// and credit any unmigrated SLCB row to the user. Idempotent — once the
+/// user is `migrated = true`, this is a no-op.
+///
+/// Used by the login flow to auto-trigger SLCB matching the moment a user
+/// links Discord+YouTube, without requiring the operator to run
+/// `caliborn match-slcb` manually.
+pub async fn match_for_user(
+    db: &AlwaysCloneableConnection,
+    user_id: i64,
+) -> Result<MatchSummary, SlcbError> {
+    let mut summary = MatchSummary::default();
+
+    let user = entities::users::Entity::find_by_id(user_id)
+        .one(&**db)
+        .await?;
+    let Some(user) = user else {
+        summary.no_slcb_row += 1;
+        return Ok(summary);
+    };
+    if user.migrated {
+        summary.already_migrated += 1;
+        return Ok(summary);
+    }
+
+    let links = entities::connected_youtube_accounts::Entity::find()
+        .filter(entities::connected_youtube_accounts::Column::UserId.eq(user_id))
+        .all(&**db)
+        .await?;
+
+    for link in links {
+        summary.considered += 1;
+
+        let slcb = entities::slcb_currency::Entity::find()
+            .filter(entities::slcb_currency::Column::UserId.eq(link.youtube_channel_id.as_str()))
+            .one(&**db)
+            .await?;
+        let Some(slcb) = slcb else {
+            summary.no_slcb_row += 1;
+            continue;
+        };
+
+        let new_watched = user.watched_time + (slcb.hours as i64) * 3600;
+        let new_boonbucks = user.boonbucks + slcb.points;
+        entities::users::Entity::update(entities::users::ActiveModel {
+            id: ActiveValue::unchanged(user.id),
+            watched_time: Set(new_watched),
+            boonbucks: Set(new_boonbucks),
+            migrated: Set(true),
+            ..Default::default()
+        })
+        .exec(&**db)
+        .await?;
+
+        summary.matched += 1;
+        tracing::info!(
+            user_id = user.id,
+            channel = %link.youtube_channel_id,
+            slcb_username = %slcb.username,
+            hours = slcb.hours,
+            points = slcb.points,
+            "imported SLCB data for user (auto-trigger)"
+        );
+        // First match wins — once migrated, subsequent links are no-ops.
+        break;
+    }
+
+    Ok(summary)
+}
+
 /// Walk all linked YouTube channels and import any matching SLCB row that
 /// hasn't already been imported.
 pub async fn match_youtube_links(

@@ -63,6 +63,16 @@ pub struct Config {
     /// `CALIBORN_LIQUIDSOAP_TOKEN` env var (kept single-underscore for
     /// deploy continuity; nested figment keys use double underscore).
     pub liquidsoap_ingest_token: String,
+    /// Name of the Liquidsoap playlist source (used to build the
+    /// `<source>.reload` command). Override via
+    /// `CALIBORN__LIQUIDSOAP_PLAYLIST_SOURCE` if your `.liq` script names
+    /// the playlist source something other than `playlist`.
+    #[serde(default = "default_playlist_source")]
+    pub liquidsoap_playlist_source: String,
+}
+
+fn default_playlist_source() -> String {
+    "playlist".to_string()
 }
 
 impl Config {

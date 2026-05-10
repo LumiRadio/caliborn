@@ -74,6 +74,7 @@ fn build_registry(conn: AlwaysCloneableConnection) -> ServiceRegistry {
         "test_app_id".to_string(),
         "LumiRadio".to_string(),
         caliborn_test_sealer(),
+        "playlist".to_string(),
     )
 }
 

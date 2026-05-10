@@ -105,6 +105,7 @@ pub struct ServiceRegistry {
     discord_application_id: String,
     linked_roles_platform_name: String,
     token_sealer: Arc<TokenSealer>,
+    liquidsoap_playlist_source: String,
 
     // services
     admin_service: CachedService<AdminCrudService>,
@@ -131,6 +132,7 @@ impl ServiceRegistry {
         discord_application_id: String,
         linked_roles_platform_name: String,
         token_sealer: Arc<TokenSealer>,
+        liquidsoap_playlist_source: String,
     ) -> Self {
         Self {
             db,
@@ -153,6 +155,7 @@ impl ServiceRegistry {
             discord_application_id,
             linked_roles_platform_name,
             token_sealer,
+            liquidsoap_playlist_source,
         }
     }
 
@@ -220,6 +223,7 @@ impl ServiceRegistry {
                 &self.db,
                 self.liquidsoap_client.clone(),
                 self.broadcaster.clone(),
+                self.liquidsoap_playlist_source.clone(),
             )
         })
     }

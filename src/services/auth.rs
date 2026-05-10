@@ -237,24 +237,39 @@ impl AuthService {
         // the original auth URL) and persist any YouTube channels. Failures
         // here must not break login — they only mean the user didn't grant the
         // scope or Discord is having a moment.
+        let mut youtube_linked = false;
         match self.fetch_discord_connections(token.secret()).await {
             Ok(conns) => {
                 for conn in conns.into_iter().filter(|c| c.r#type == "youtube") {
-                    if let Err(e) = self
+                    match self
                         .user_repo
                         .upsert_youtube_account(user_id as i64, &conn.id, &conn.name)
                         .await
                     {
-                        tracing::warn!(
+                        Ok(_) => youtube_linked = true,
+                        Err(e) => tracing::warn!(
                             user_id,
                             error = ?e,
                             "Failed to upsert YouTube connection"
-                        );
+                        ),
                     }
                 }
             }
             Err(e) => {
                 tracing::warn!(user_id, error = ?e, "Failed to fetch Discord connections");
+            }
+        }
+
+        // Best-effort: auto-match SLCB legacy data. Runs only when at least
+        // one YouTube channel was just linked; idempotent for already-migrated
+        // users. Failures must not break login.
+        if youtube_linked {
+            match crate::services::slcb::match_for_user(&self.db, user_id as i64).await {
+                Ok(summary) if summary.matched > 0 => {
+                    tracing::info!(user_id, ?summary, "Auto-matched SLCB data on login")
+                }
+                Ok(_) => {}
+                Err(e) => tracing::warn!(user_id, error = ?e, "SLCB auto-match failed"),
             }
         }
 

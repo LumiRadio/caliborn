@@ -26,6 +26,7 @@ Caliborn reads config from environment variables prefixed with `CALIBORN__`
 | `CALIBORN_TOKEN_ENCRYPTION_KEY` | `serve` | **64 hex chars (32 bytes)**. AES-GCM master key for OAuth-token storage. Generate with `openssl rand -hex 32`. **Do not lose this** — losing it invalidates every stored refresh token. |
 | `CALIBORN_LIQUIDSOAP_TOKEN` | `serve` | Shared secret Liquidsoap sends in `X-Liquidsoap-Token` on `POST /playback/played`. Generate with `openssl rand -hex 32`. Validated at startup — `serve` refuses to boot if it's unset. |
 | `CALIBORN_DISCORD_BOT_TOKEN` | `linked-roles register` only | Discord bot token. Used once for schema registration. |
+| `CALIBORN__LIQUIDSOAP_PLAYLIST_SOURCE` | optional (`serve`, `playlist`) | Name of the Liquidsoap playlist source. Defaults to `playlist` — set this if your `.liq` script names the source something else (the reload command sent to Liquidsoap is `<source>.reload`). |
 
 ### Calliope (frontend) authorization-URL scopes
 
@@ -157,9 +158,11 @@ Walks `connected_youtube_accounts`, finds `slcb_currency.user_id` matches
 for non-`migrated` users, adds `hours * 3600` to `users.watched_time` and
 `points` to `users.boonbucks`, sets `migrated = true`. Idempotent.
 
-The plan calls for this to run on demand whenever Discord+YouTube linking
-happens — currently that's manual via this CLI. A future enhancement could
-trigger it from `AuthService::login_user` after the YouTube upsert.
+`AuthService::login_user` also auto-triggers a per-user match
+(`slcb::match_for_user`) after each successful YouTube upsert, so SLCB data
+flows in the moment a user links Discord+YouTube without operator
+intervention. This CLI remains useful for backfilling YouTube links that
+were upserted before the auto-trigger landed.
 
 ---
 
@@ -180,9 +183,10 @@ re-indexes every supported audio file (mp3, flac, ogg, wav). `--dry-run`
 skips writes. `housekeep` runs forever, polling the tree at a 5s interval
 and applying create/rename/delete events incrementally. `playlist`
 rewrites the `.m3u` from current `songs.file_path` rows; with `--reload`,
-sends `playlist.reload` to Liquidsoap over the configured socket (adjust
-the source name in `main.rs::playlist_cmd` if your Liquidsoap playlist
-source isn't named `playlist`).
+sends `<source>.reload` to Liquidsoap over the configured socket. The
+source name is configurable via `CALIBORN__LIQUIDSOAP_PLAYLIST_SOURCE`
+(defaults to `playlist`); both the CLI and `POST /stream/playlist/reload`
+honor it.
 
 Pure-Rust dependency stack (`lofty`); no system `ffmpeg` libraries
 required at build or runtime.
@@ -232,7 +236,6 @@ needs its own pg_dump + observation window:
 - Drop `slcb_*` tables — **no, never**: kept permanently for late-joining
   users.
 - Refresh-token storage encryption-key rotation tool.
-- Auto-trigger `match-slcb` from the login flow.
 
 ---
 

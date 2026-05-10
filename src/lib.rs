@@ -114,6 +114,7 @@ pub fn make_app(
     linked_roles_platform_name: String,
     token_sealer: Arc<TokenSealer>,
     liquidsoap_ingest_token: Arc<str>,
+    liquidsoap_playlist_source: String,
 ) -> axum::Router {
     let broadcaster = Broadcaster::new();
     let app_state = AppState {
@@ -127,6 +128,7 @@ pub fn make_app(
             discord_application_id,
             linked_roles_platform_name,
             token_sealer,
+            liquidsoap_playlist_source,
         ),
         liquidsoap_ingest_token,
     };
