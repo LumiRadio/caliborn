@@ -6,6 +6,7 @@ use utoipa::ToSchema;
 
 use super::json;
 
+pub use crate::services::minigames::dice::RollResult as DiceRollResult;
 pub use crate::services::minigames::slots::{ReelSymbol, SlotSymbol, SpinResult};
 
 /// Request body for `POST /minigames/slots/spin`.
@@ -21,6 +22,12 @@ pub struct SlotsSpinRequest {
 }
 
 impl IntoResponse for SpinResult {
+    fn into_response(self) -> axum::response::Response {
+        json(self).into_response()
+    }
+}
+
+impl IntoResponse for DiceRollResult {
     fn into_response(self) -> axum::response::Response {
         json(self).into_response()
     }

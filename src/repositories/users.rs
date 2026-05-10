@@ -171,8 +171,8 @@ pub trait UserRepositoryExt: Send + Sync + 'static {
         amount: i32,
     ) -> Result<(i32, i32), TransferError>;
 
-    /// Atomically applies a slot-machine round: deducts `bet`, then credits
-    /// `bet * payout_multiplier` (skipped when the multiplier is 0).
+    /// Atomically applies a minigame round: deducts `bet`, then credits
+    /// `payout` (skipped when `payout == 0`).
     ///
     /// # Returns
     /// The user's balance after the round.
@@ -181,11 +181,11 @@ pub trait UserRepositoryExt: Send + Sync + 'static {
     /// - [`BalanceUpdateError::UserNotFound`] if `user_id` does not exist.
     /// - [`BalanceUpdateError::InsufficientFunds`] if balance < `bet`.
     /// - [`BalanceUpdateError::Db`] for any underlying database error.
-    async fn apply_slot_outcome(
+    async fn apply_minigame_outcome(
         &self,
         user_id: i64,
         bet: i32,
-        payout_multiplier: u32,
+        payout: i32,
     ) -> Result<i32, BalanceUpdateError>;
 }
 
@@ -509,11 +509,11 @@ impl UserRepositoryExt for BaseRepository<entities::users::Entity> {
             })
     }
 
-    async fn apply_slot_outcome(
+    async fn apply_minigame_outcome(
         &self,
         user_id: i64,
         bet: i32,
-        payout_multiplier: u32,
+        payout: i32,
     ) -> Result<i32, BalanceUpdateError> {
         self.db
             .transaction::<_, i32, BalanceUpdateError>(|txn| {
@@ -541,9 +541,7 @@ impl UserRepositoryExt for BaseRepository<entities::users::Entity> {
                         };
                     }
 
-                    if payout_multiplier > 0 {
-                        let payout = (bet as i64) * (payout_multiplier as i64);
-                        let payout: i32 = payout.try_into().unwrap_or(i32::MAX);
+                    if payout > 0 {
                         entities::users::Entity::update_many()
                             .col_expr(
                                 entities::users::Column::Boonbucks,

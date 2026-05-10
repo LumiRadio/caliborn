@@ -5,7 +5,7 @@ use crate::{
     dtos::{
         Json,
         error::{CalibornResult, ErrorResponse},
-        minigames::{SlotsSpinRequest, SpinResult},
+        minigames::{DiceRollResult, SlotsSpinRequest, SpinResult},
     },
     services::auth::{AuthenticatedUser, authenticate},
 };
@@ -37,8 +37,34 @@ pub async fn slots_spin(
     Ok(result)
 }
 
+#[utoipa::path(
+    post,
+    path = "/minigames/dice/roll",
+    responses(
+        (status = 200, description = "Dice roll result", body = DiceRollResult),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 403, description = "User lacks the use_minigames permission", body = ErrorResponse),
+        (status = 422, description = "Insufficient funds or user not found", body = ErrorResponse),
+        (status = 429, description = "On cooldown", body = ErrorResponse)
+    ),
+    security(
+        ("user_jwt" = []),
+        ("user_api_key" = [])
+    )
+)]
+#[axum::debug_handler]
+pub async fn dice_roll(
+    AuthenticatedUser(actor): AuthenticatedUser,
+    State(state): State<AppState>,
+) -> CalibornResult<DiceRollResult> {
+    let minigames = state.service_registry.minigame_service();
+    let result = minigames.dice.roll(actor.user_id()).await?;
+    Ok(result)
+}
+
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/slots/spin", post(slots_spin))
+        .route("/dice/roll", post(dice_roll))
         .layer(axum::middleware::from_fn_with_state(state, authenticate))
 }

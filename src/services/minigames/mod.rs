@@ -8,14 +8,17 @@ use crate::{
     repositories::{AlwaysCloneableConnection, BaseRepository},
 };
 
+pub mod dice;
 pub mod slots;
 
+pub use dice::DiceService;
 pub use slots::SlotsService;
 
 /// Aggregator over per-game services so the registry exposes a single
 /// `MinigameService` rather than one entry per game.
 pub struct MinigameService {
     pub slots: SlotsService,
+    pub dice: DiceService,
 }
 
 impl MinigameService {
@@ -27,6 +30,7 @@ impl MinigameService {
                 registry.cooldown_service(),
                 registry.user_service(),
             ),
+            dice: DiceService::new(db, registry.cooldown_service(), registry.user_service()),
         }
     }
 }

@@ -322,16 +322,15 @@ impl SlotsService {
             self.machine.spin(&mut rng)
         };
 
+        let payout = (bet as i64).saturating_mul(multiplier as i64) as i32;
         let new_balance = self
             .user_repo
-            .apply_slot_outcome(user_id.into(), bet, multiplier)
+            .apply_minigame_outcome(user_id.into(), bet, payout)
             .await?;
 
         cooldown
             .set_or_replace(&self.cooldown_service, user_id)
             .await?;
-
-        let payout = (bet as i64).saturating_mul(multiplier as i64) as i32;
         let result_json = serde_json::json!({
             "reels": reels,
             "multiplier": multiplier,
