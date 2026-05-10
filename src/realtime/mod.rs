@@ -1,9 +1,9 @@
 //! In-process pub/sub for runtime events.
 //!
 //! Events are published by the playback ingest endpoint, the song request
-//! flow, and minigame services. Subscribers (currently the WebSocket route in
-//! Phase 5) receive a fan-out copy of every event published while their
-//! receiver is alive. Lagged subscribers drop the oldest events.
+//! flow, and minigame services. Subscribers (currently the WebSocket route)
+//! receive a fan-out copy of every event published while their receiver is
+//! alive. Lagged subscribers drop the oldest events.
 
 use chrono::NaiveDateTime;
 use serde::Serialize;

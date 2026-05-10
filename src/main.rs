@@ -268,13 +268,13 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
         Command::Serve => serve(config).await,
         Command::Migrate { op } => migrate(config, op).await,
         Command::Index { .. } => Err(ApplicationError::NotImplemented(
-            "`index`: port from frohike landing in a follow-up phase",
+            "`index`: port from frohike not yet landed",
         )),
         Command::Housekeep { .. } => Err(ApplicationError::NotImplemented(
-            "`housekeep`: port from frohike landing in a follow-up phase",
+            "`housekeep`: port from frohike not yet landed",
         )),
         Command::Playlist { .. } => Err(ApplicationError::NotImplemented(
-            "`playlist`: port from frohike landing in a follow-up phase",
+            "`playlist`: port from frohike not yet landed",
         )),
         Command::LinkedRoles { op } => linked_roles(config, op).await,
         Command::ImportSlcb { path, dry_run } => import_slcb(config, path, dry_run).await,

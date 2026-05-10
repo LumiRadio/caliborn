@@ -7,7 +7,7 @@
 //!
 //! Bot-as-opponent mode (90/10 against challenger, jackpot funnel) is **not**
 //! implemented yet; it requires a configured bot user id which Caliborn
-//! does not yet have. Tracked as a follow-up for Phase 4 / config wiring.
+//! does not yet have. Tracked as a follow-up for config wiring.
 
 use std::sync::Arc;
 

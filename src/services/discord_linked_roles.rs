@@ -13,7 +13,7 @@
 //!
 //! 3. **Out-of-band push** — `/playback/played` ingest and the manual
 //!    `POST /user/me/sync-linked-role` endpoint use the encrypted refresh
-//!    token (stored at login by Phase 8.5) to mint a fresh access token via
+//!    token (stored at login) to mint a fresh access token via
 //!    [`crate::services::discord_oauth_tokens::TokenStore`] and push
 //!    updated metadata without requiring the user to re-login.
 

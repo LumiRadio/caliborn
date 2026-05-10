@@ -7,7 +7,7 @@
 //!
 //! Without the master key Caliborn cannot decrypt tokens, so the env var must
 //! be present in production (and rotated atomically by re-encrypting the
-//! `discord_oauth_tokens` table — out of scope for this phase).
+//! `discord_oauth_tokens` table — out of scope here).
 
 use aes_gcm::{
     Aes256Gcm, Key, Nonce,
