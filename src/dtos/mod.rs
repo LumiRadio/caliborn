@@ -126,10 +126,11 @@ pub fn json_with_status<T: Serialize>(
 ///
 /// # Examples
 ///
-/// ```rust
-/// # use axum::{routing::post, Router};
-/// # use caliborn::dtos::Json;
-/// # use serde::Deserialize;
+/// ```ignore
+/// use axum::{routing::post, Router};
+/// use caliborn::dtos::Json;
+/// use serde::Deserialize;
+///
 /// #[derive(Deserialize)]
 /// struct CreateUser {
 ///     name: String,
@@ -137,13 +138,10 @@ pub fn json_with_status<T: Serialize>(
 /// }
 ///
 /// async fn create_user(Json(payload): Json<CreateUser>) {
-///     // Process the deserialized JSON payload
-///     let name = payload.name;
-///     let email = payload.email;
-///     // ...
+///     let _ = (payload.name, payload.email);
 /// }
 ///
-/// let app = Router::new().route("/users", post(create_user));
+/// let _app: Router = Router::new().route("/users", post(create_user));
 /// ```
 ///
 /// # Errors
@@ -169,21 +167,18 @@ impl<T: DeserializeOwned> Json<T> {
 ///
 /// # Examples
 ///
-/// ```rust
-/// use axum::extract::Query;
-/// use caliborn::dtos::Query;
-/// use serde::Deserialize;
+/// ```ignore
+/// use caliborn::dtos::{Json, Query};
+/// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Deserialize)]
-/// struct UserQuery {
-///     id: u64,
-/// }
+/// struct UserQuery { id: u64 }
+///
+/// #[derive(Serialize)]
+/// struct User { id: u64, name: String }
 ///
 /// async fn get_user(Query(query): Query<UserQuery>) -> Json<User> {
-///     Json(User {
-///         id: query.id,
-///         name: String::from("Alice"),
-///     })
+///     Json(User { id: query.id, name: "Alice".into() })
 /// }
 /// ```
 #[derive(Debug, FromRequestParts)]

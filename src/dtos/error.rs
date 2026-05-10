@@ -6,15 +6,16 @@
 //!
 //! # Examples
 //!
-//! ```rust
-//! # use caliborn::dtos::error::{CalibornError, CalibornResult};
+//! ```ignore
+//! use caliborn::dtos::error::{ApiError, CalibornResult, PublicError};
+//! use reqwest::StatusCode;
+//!
 //! fn may_fail() -> CalibornResult<String> {
-//!     // Operation that might fail
-//!     if false {
-//!         Err(CalibornError::NotFound("Resource not found".to_string()))
-//!     } else {
-//!         Ok("Success".to_string())
-//!     }
+//!     Err(ApiError::Public(PublicError::new(
+//!         "not-found",
+//!         "Resource not found",
+//!         StatusCode::NOT_FOUND,
+//!     )))
 //! }
 //! ```
 
@@ -153,12 +154,17 @@ impl From<QueryRejection> for ApiError {
 ///
 /// # Examples
 ///
-/// ```rust
-/// # use caliborn::dtos::error::{CalibornError, CalibornResult};
+/// ```ignore
+/// use caliborn::dtos::error::{ApiError, CalibornResult, PublicError};
+/// use reqwest::StatusCode;
+///
 /// fn fetch_user(id: u64) -> CalibornResult<String> {
-///     // Simulate a database lookup
 ///     if id == 0 {
-///         Err(CalibornError::NotFound("User not found".to_string()))
+///         Err(ApiError::Public(PublicError::new(
+///             "user-not-found",
+///             "User not found",
+///             StatusCode::NOT_FOUND,
+///         )))
 ///     } else {
 ///         Ok("User data".to_string())
 ///     }

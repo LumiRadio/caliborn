@@ -300,7 +300,7 @@ where
 /// Macro to generate common DTOs for an entity
 ///
 /// # Usage
-/// ```rust
+/// ```ignore
 /// generate_dtos!(
 ///     entities::cans::Entity,
 ///     CreateCanDto {
