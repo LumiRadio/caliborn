@@ -35,6 +35,10 @@ enum ApplicationError {
     Maintenance(#[from] caliborn::maintenance::MaintenanceError),
     #[error(transparent)]
     Notify(#[from] notify::Error),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    SerdeYaml(#[from] serde_yaml::Error),
 }
 
 #[derive(Parser)]
@@ -103,6 +107,25 @@ enum Command {
 
     /// Re-run the YouTube-channel-id matching pass against `connected_youtube_accounts`.
     MatchSlcb,
+
+    /// Generate the OpenAPI schema for the HTTP API.
+    Openapi {
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OpenapiFormat::Json)]
+        format: OpenapiFormat,
+        /// Write to this file instead of stdout.
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+        /// Emit minified JSON instead of pretty-printed (ignored for YAML).
+        #[arg(long)]
+        compact: bool,
+    },
+}
+
+#[derive(Copy, Clone, Debug, clap::ValueEnum)]
+enum OpenapiFormat {
+    Json,
+    Yaml,
 }
 
 #[derive(Subcommand)]
@@ -457,6 +480,32 @@ async fn handle_fs_event(
     Ok(())
 }
 
+fn openapi_cmd(
+    format: OpenapiFormat,
+    out: Option<PathBuf>,
+    compact: bool,
+) -> Result<(), ApplicationError> {
+    use utoipa::OpenApi as _;
+
+    let doc = caliborn::openapi::ApiDoc::openapi();
+    let serialized = match format {
+        OpenapiFormat::Json => {
+            if compact {
+                serde_json::to_string(&doc)?
+            } else {
+                serde_json::to_string_pretty(&doc)?
+            }
+        }
+        OpenapiFormat::Yaml => serde_yaml::to_string(&doc)?,
+    };
+
+    match out {
+        Some(path) => std::fs::write(&path, serialized)?,
+        None => println!("{serialized}"),
+    }
+    Ok(())
+}
+
 async fn migrate(config: Config, op: MigrateOp) -> Result<(), ApplicationError> {
     let db = sea_orm::Database::connect(&config.database_url).await?;
     match op {
@@ -469,8 +518,19 @@ async fn migrate(config: Config, op: MigrateOp) -> Result<(), ApplicationError> 
 }
 
 async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
+    let command = cli.command.unwrap_or(Command::Serve);
+
+    if let Command::Openapi {
+        format,
+        out,
+        compact,
+    } = command
+    {
+        return openapi_cmd(format, out, compact);
+    }
+
     let config = Config::new()?;
-    match cli.command.unwrap_or(Command::Serve) {
+    match command {
         Command::Serve => serve(config).await,
         Command::Migrate { op } => migrate(config, op).await,
         Command::Index {
@@ -483,6 +543,7 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
         Command::LinkedRoles { op } => linked_roles(config, op).await,
         Command::ImportSlcb { path, dry_run } => import_slcb(config, path, dry_run).await,
         Command::MatchSlcb => match_slcb(config).await,
+        Command::Openapi { .. } => unreachable!("handled above"),
     }
 }
 

@@ -24,7 +24,7 @@ pub use crate::{
     services::ServiceRegistry,
 };
 
-mod openapi;
+pub mod openapi;
 
 /// Data Transfer Objects (DTOs) used for communication between services.
 pub mod dtos;

@@ -1,0 +1,1935 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "caliborn",
+    "description": "API server for lumiRadio",
+    "contact": {
+      "name": "cozygalvinism"
+    },
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/auth/discord/login": {
+      "post": {
+        "tags": [
+          "crate::routes::auth"
+        ],
+        "summary": "Logs in a user via Discord",
+        "description": "This endpoint is used to exchange the authorization code received from Discord for an access token.\n\nThe authorization code is obtained by redirecting the user to the [Discord authorization URL](https://discord.com/developers/docs/topics/oauth2#authorization-code-flow).\n\n# Parameters\n\n* `code` - The authorization code received from Discord\n\n# Returns\n\nA `200 OK` response containing the access token, user ID, and expiration time.\n\n# Errors\n\n* `401 Unauthorized` - An authorization error occurred (e.g. invalid authorization code)\n* `500 Internal Server Error` - An internal server error occurred",
+        "operationId": "discord_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Discord login was successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserToken"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "An authorization error occurred (e.g. invalid authorization code)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized",
+                  "message": "Invalid authorization code"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error",
+                  "message": "Internal server error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bears/add": {
+      "post": {
+        "tags": [
+          "crate::routes::bears"
+        ],
+        "summary": "Add a bear to Bear Town.",
+        "description": "# Returns\n\nA 200 OK response containing the new bear count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred\n* `401 Unauthorized` - An authorization error occurred (e.g. invalid access token)",
+        "operationId": "add_bear",
+        "responses": {
+          "200": {
+            "description": "Bear was successfully added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanCountDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "An authorization error occurred (e.g. invalid access token)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized",
+                  "message": "Invalid access token"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error",
+                  "message": "Internal server error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/bears/count": {
+      "get": {
+        "tags": [
+          "crate::routes::bears"
+        ],
+        "summary": "Get the current bear count.",
+        "description": "# Returns\n\nA 200 OK response containing the current bear count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred",
+        "operationId": "get_bear_count",
+        "responses": {
+          "200": {
+            "description": "Current bear count was successfully retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanCountDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error",
+                  "message": "Internal server error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cans/add": {
+      "post": {
+        "tags": [
+          "crate::routes::cans"
+        ],
+        "summary": "Add a can to Can Town.",
+        "description": "# Returns\n\nA 200 OK response containing the new can count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred\n* `401 Unauthorized` - An authorization error occurred (e.g. invalid access token)",
+        "operationId": "add_can",
+        "responses": {
+          "200": {
+            "description": "Can was successfully added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanCountDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "An authorization error occurred (e.g. invalid access token)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized",
+                  "message": "Invalid access token"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error",
+                  "message": "Internal server error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/cans/count": {
+      "get": {
+        "tags": [
+          "crate::routes::cans"
+        ],
+        "summary": "Get the current can count.",
+        "description": "# Returns\n\nA 200 OK response containing the current can count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred",
+        "operationId": "get_can_count",
+        "responses": {
+          "200": {
+            "description": "Current can count was successfully retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanCountDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error",
+                  "message": "Internal server error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/minigames/dice/roll": {
+      "post": {
+        "tags": [
+          "crate::routes::minigames"
+        ],
+        "operationId": "dice_roll",
+        "responses": {
+          "200": {
+            "description": "Dice roll result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RollResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks the use_minigames permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Insufficient funds or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "On cooldown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/minigames/pvp": {
+      "post": {
+        "tags": [
+          "crate::routes::minigames"
+        ],
+        "operationId": "pvp_challenge",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PvpChallengeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Duel result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvpResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks the use_minigames permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Self-challenge, opponent missing, or insufficient funds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Challenger on cooldown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/minigames/slots/spin": {
+      "post": {
+        "tags": [
+          "crate::routes::minigames"
+        ],
+        "operationId": "slots_spin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlotsSpinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Spin result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpinResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks the use_minigames permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Bet out of range, insufficient funds, or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "On cooldown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/playback/played": {
+      "post": {
+        "tags": [
+          "crate::routes::playback"
+        ],
+        "operationId": "played",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stream/playlist/reload": {
+      "post": {
+        "tags": [
+          "crate::routes::stream"
+        ],
+        "operationId": "playlist_reload",
+        "responses": {
+          "200": {
+            "description": "Playlist reloaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiquidsoapResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/stream/queue/push": {
+      "post": {
+        "tags": [
+          "crate::routes::stream"
+        ],
+        "operationId": "queue_push",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueuePushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pushed onto queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiquidsoapResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/stream/raw": {
+      "post": {
+        "tags": [
+          "crate::routes::stream"
+        ],
+        "operationId": "raw",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RawCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Raw response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiquidsoapResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/stream/skip": {
+      "post": {
+        "tags": [
+          "crate::routes::stream"
+        ],
+        "operationId": "skip",
+        "responses": {
+          "200": {
+            "description": "Skip command sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiquidsoapResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lacks manage_stream permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Liquidsoap socket error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/stream/volume": {
+      "post": {
+        "tags": [
+          "crate::routes::stream"
+        ],
+        "operationId": "volume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VolumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Volume set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiquidsoapResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/user/me": {
+      "get": {
+        "tags": [
+          "crate::routes::user"
+        ],
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "User was successfully retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "An authorization error occurred (e.g. invalid access token)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized",
+                  "message": "Invalid access token"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error",
+                  "message": "Internal server error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/me/pay": {
+      "post": {
+        "tags": [
+          "crate::routes::user"
+        ],
+        "operationId": "pay",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Boonbucks transferred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "An authorization error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid amount, self-transfer, insufficient funds, or recipient not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/user/me/profile": {
+      "get": {
+        "tags": [
+          "crate::routes::user"
+        ],
+        "operationId": "my_profile",
+        "responses": {
+          "200": {
+            "description": "Aggregated profile for the authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/user/me/sync-linked-role": {
+      "post": {
+        "tags": [
+          "crate::routes::user"
+        ],
+        "operationId": "sync_linked_role",
+        "responses": {
+          "204": {
+            "description": "Linked-role metadata pushed to Discord"
+          },
+          "401": {
+            "description": "Auth or stored token missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Discord rejected the push or refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/user/{id}/profile": {
+      "get": {
+        "tags": [
+          "crate::routes::user"
+        ],
+        "operationId": "user_profile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated profile for the requested user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CanCountDto": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "examples": [
+          {
+            "count": 10
+          }
+        ]
+      },
+      "ConnectedYoutubeAccountDto": {
+        "type": "object",
+        "description": "A linked YouTube channel.",
+        "required": [
+          "channel_id",
+          "channel_name"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "channel_name": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "channel_id": "UCxxxx",
+            "channel_name": "Cool Channel"
+          }
+        ]
+      },
+      "DiscordLoginRequest": {
+        "type": "object",
+        "description": "A request to log in with Discord, part of the OAuth 2.0 flow.\n\nThis is the request body for the /auth/discord/login endpoint, which is used to\nexchange the authorization code for an access token. The code is obtained from\nDiscord after the user authorizes the application.\n\n# Examples\n\n```rust\n# use caliborn::dtos::auth::DiscordLoginRequest;\nlet login_request = DiscordLoginRequest {\n    code: String::from(\"NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee\"),\n};\n```\n\n# External Resources\n\nYou can obtain an authorization code by redirecting the user to the\n[Discord authorization URL](https://discord.com/developers/docs/topics/oauth2#authorization-code-flow).\n\n# Errors\n\nIf the code is invalid or expired, the login endpoint will return an error.",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The authorization code received from Discord after the user has authorized your application.",
+            "examples": [
+              "NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"
+            ]
+          }
+        },
+        "examples": [
+          {
+            "code": "NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"
+          }
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "An error response containing details about the problem",
+        "required": [
+          "message",
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A machine-readable error code identifying the error type.\n\nCommon values include \"Bad Request\", \"Unauthorized\", \"Internal Server Error\",\nand \"Not Found\".",
+            "examples": [
+              "Bad Request",
+              "Unauthorized",
+              "Internal Server Error"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message describing the error.",
+            "examples": [
+              "Invalid authorization code"
+            ]
+          }
+        },
+        "examples": [
+          {
+            "error": "Unauthorized",
+            "message": "Invalid authorization code"
+          }
+        ]
+      },
+      "LiquidsoapResponseDto": {
+        "type": "object",
+        "required": [
+          "response"
+        ],
+        "properties": {
+          "response": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "response": "Done.\n"
+          }
+        ]
+      },
+      "PayRequest": {
+        "type": "object",
+        "description": "Pay boonbucks to another user",
+        "required": [
+          "recipient_id",
+          "amount"
+        ],
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Amount of boonbucks to send. Must be > 0.",
+            "example": 50
+          },
+          "recipient_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Discord user ID of the recipient.",
+            "example": 675674657
+          }
+        },
+        "examples": [
+          {
+            "amount": 50,
+            "recipient_id": 675674657
+          }
+        ]
+      },
+      "PayResponse": {
+        "type": "object",
+        "description": "Result of a successful pay transfer",
+        "required": [
+          "amount",
+          "sender_balance",
+          "recipient_balance"
+        ],
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Amount transferred."
+          },
+          "recipient_balance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Recipient's balance after the transfer."
+          },
+          "sender_balance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Sender's balance after the transfer."
+          }
+        },
+        "examples": [
+          {
+            "amount": 50,
+            "recipient_balance": 1050,
+            "sender_balance": 950
+          }
+        ]
+      },
+      "PlayedRequest": {
+        "type": "object",
+        "required": [
+          "file_path"
+        ],
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "examples": [
+          {
+            "album": "Example Album",
+            "artist": "Example Artist",
+            "file_path": "/music/example.flac",
+            "title": "Example Song"
+          }
+        ]
+      },
+      "PlayedResponse": {
+        "type": "object",
+        "required": [
+          "played_at"
+        ],
+        "properties": {
+          "played_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "examples": [
+          {
+            "played_at": "2026-05-10T12:34:56"
+          }
+        ]
+      },
+      "ProfileDto": {
+        "type": "object",
+        "description": "Aggregated profile view of a user.",
+        "required": [
+          "id",
+          "boonbucks",
+          "watched_time",
+          "listening_hours",
+          "position_by_hours",
+          "position_by_boonbucks",
+          "cans_added",
+          "connected_youtube_accounts",
+          "role",
+          "permissions",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "boonbucks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cans_added": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of cans this user has placed in Can Town."
+          },
+          "connected_youtube_accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectedYoutubeAccountDto"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "listening_hours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "`watched_time / 3600`, exposed for convenience."
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Effective permissions (role grants + per-user grants − per-user revokes)."
+          },
+          "position_by_boonbucks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "1-based rank by `boonbucks` descending."
+          },
+          "position_by_hours": {
+            "type": "integer",
+            "format": "int64",
+            "description": "1-based rank by `watched_time` descending."
+          },
+          "role": {
+            "type": "string",
+            "description": "The user's primary role name."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "watched_time": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Watched (listening) time in seconds."
+          }
+        },
+        "examples": [
+          {
+            "boonbucks": 1234,
+            "cans_added": 25,
+            "connected_youtube_accounts": [],
+            "created_at": "2023-01-01T00:00:00",
+            "id": 675674657,
+            "listening_hours": 10,
+            "permissions": [
+              "use_minigames",
+              "use_web_chat",
+              "use_bot"
+            ],
+            "position_by_boonbucks": 7,
+            "position_by_hours": 3,
+            "role": "user",
+            "updated_at": "2023-01-01T00:00:00",
+            "username": "Caliborn",
+            "watched_time": 36000
+          }
+        ]
+      },
+      "PvpChallengeRequest": {
+        "type": "object",
+        "description": "PvP duel request",
+        "required": [
+          "opponent_id"
+        ],
+        "properties": {
+          "opponent_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Discord user ID of the opponent.",
+            "example": 675674657
+          }
+        },
+        "examples": [
+          {
+            "opponent_id": 675674657
+          }
+        ]
+      },
+      "PvpResult": {
+        "type": "object",
+        "required": [
+          "challenger_id",
+          "opponent_id",
+          "challenger_won",
+          "transferred",
+          "challenger_balance",
+          "opponent_balance"
+        ],
+        "properties": {
+          "challenger_balance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "challenger_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "challenger_won": {
+            "type": "boolean"
+          },
+          "opponent_balance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "opponent_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "transferred": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "QueuePushRequest": {
+        "type": "object",
+        "required": [
+          "file_path"
+        ],
+        "properties": {
+          "file_path": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "boolean",
+            "description": "If true, push to the priority queue (`prioq`) instead of the standard\nrequest queue (`srq`)."
+          }
+        },
+        "examples": [
+          {
+            "file_path": "/music/example.flac",
+            "priority": false
+          }
+        ]
+      },
+      "RawCommandRequest": {
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "command": "request.skip"
+          }
+        ]
+      },
+      "ReelSymbol": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "symbol",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "symbol"
+                ]
+              },
+              "symbol": {
+                "$ref": "#/components/schemas/SlotSymbol"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "blank"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RollResult": {
+        "type": "object",
+        "required": [
+          "mode",
+          "dice",
+          "player_roll",
+          "sum",
+          "server_roll_before",
+          "server_roll_after",
+          "server_mode_after",
+          "secret_match",
+          "bet",
+          "payout",
+          "new_balance",
+          "won"
+        ],
+        "properties": {
+          "bet": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dice": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          "mode": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "new_balance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "payout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "player_roll": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "secret_match": {
+            "type": "boolean"
+          },
+          "server_mode_after": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "server_roll_after": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "server_roll_before": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sum": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "won": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SlotSymbol": {
+        "type": "string",
+        "enum": [
+          "jackpot",
+          "red_seven",
+          "triple_bar",
+          "double_bar",
+          "bar",
+          "cherry"
+        ]
+      },
+      "SlotsSpinRequest": {
+        "type": "object",
+        "description": "Slot machine spin request",
+        "required": [
+          "bet"
+        ],
+        "properties": {
+          "bet": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Wager in boonbucks. Must be between 1 and 10 inclusive.",
+            "example": 5,
+            "maximum": 10,
+            "minimum": 1
+          }
+        },
+        "examples": [
+          {
+            "bet": 5
+          }
+        ]
+      },
+      "SpinResult": {
+        "type": "object",
+        "required": [
+          "reels",
+          "multiplier",
+          "payout",
+          "bet",
+          "new_balance",
+          "won"
+        ],
+        "properties": {
+          "bet": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "multiplier": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "new_balance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "payout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReelSymbol"
+            }
+          },
+          "won": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UserDto": {
+        "type": "object",
+        "description": "A user of lumiRadio",
+        "required": [
+          "id",
+          "watched_time",
+          "boonbucks",
+          "migrated",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "boonbucks": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The amount of boonbucks (virtual currency) the user has accumulated.\n\nBoonbucks can be earned through various activities on the platform and\ncan be used for purchases or interactions.",
+            "example": 100
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when the user account was created.",
+            "example": "2023-01-01T00:00:00"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The unique identifier of the user.",
+            "example": 675674657
+          },
+          "last_message_sent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "The timestamp of the last message sent by the user.\n\nThis is `None` if the user has never sent a message.",
+            "example": "2023-01-01T00:00:00"
+          },
+          "migrated": {
+            "type": "boolean",
+            "description": "Whether the user has migrated their data from the old radio bot.\n\nThis is `true` if the user has migrated their data from the old radio bot.",
+            "example": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when the user account was last updated.",
+            "example": "2023-01-01T00:00:00"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The username of the user, if they have set one.\n\nThis is `None` if the user has not set a username yet.",
+            "example": "Caliborn"
+          },
+          "watched_time": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The total watched time of the user, in seconds.\n\nThis represents the cumulative time the user has spent watching content\non the lumiRadio platform.",
+            "example": 1234567890
+          }
+        },
+        "examples": [
+          {
+            "boonbucks": 100,
+            "created_at": "2023-01-01T00:00:00",
+            "id": 675674657,
+            "last_message_sent": "2023-01-01T00:00:00",
+            "migrated": true,
+            "updated_at": "2023-01-01T00:00:00",
+            "username": "Caliborn",
+            "watched_time": 1234567890
+          }
+        ]
+      },
+      "UserToken": {
+        "type": "object",
+        "description": "A response to a successful login via Discord",
+        "required": [
+          "token",
+          "user_id",
+          "expires_in",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The timestamp when the access token expires.",
+            "example": 1682384222,
+            "minimum": 0
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The time in seconds until the access token expires.",
+            "example": 3600,
+            "minimum": 0
+          },
+          "token": {
+            "type": "string",
+            "description": "An access token which can be used to authenticate to other endpoints.\nThis is a JWT token containing the user's identity information.",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2NzU3NjQ3NjUsImlhdCI6MTY4MjM3NDQyMiwiZXhwIjoxNjgyMzgyNDIyfQ.QUQ0z3O9TqYUv4JzL9Vq7Z0T2Zr4xJnNzK4yRfGpPZ"
+          },
+          "user_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The ID of the user who was logged in.",
+            "example": 675674657,
+            "minimum": 0
+          }
+        },
+        "examples": [
+          {
+            "expires_at": 1682384222,
+            "expires_in": 3600,
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2NzU3NjQ3NjUsImlhdCI6MTY4MjM3NDQyMiwiZXhwIjoxNjgyMzgyNDIyfQ.QUQ0z3O9TqYUv4JzL9Vq7Z0T2Zr4xJnNzK4yRfGpPZ",
+            "user_id": 675674657
+          }
+        ]
+      },
+      "VolumeRequest": {
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "properties": {
+          "level": {
+            "type": "number",
+            "format": "float",
+            "description": "Level in `[0.0, 1.0]`.",
+            "example": 0.6,
+            "maximum": 1,
+            "minimum": 0
+          }
+        },
+        "examples": [
+          {
+            "level": 0.6
+          }
+        ]
+      }
+    },
+    "securitySchemes": {
+      "user_api_key": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "API Key"
+      },
+      "user_jwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
