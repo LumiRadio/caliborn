@@ -205,6 +205,52 @@ async fn linked_roles(config: Config, op: LinkedRolesOp) -> Result<(), Applicati
     }
 }
 
+async fn import_slcb(config: Config, path: PathBuf, dry_run: bool) -> Result<(), ApplicationError> {
+    use caliborn::services::slcb;
+
+    let records = slcb::parse_streamlabs(&path)
+        .map_err(|e| ApplicationError::LinkedRoles(format!("import-slcb parse error: {e}")))?;
+    let db = sea_orm::Database::connect(&config.database_url).await?;
+    let conn: caliborn::repositories::AlwaysCloneableConnection = db.into();
+    let summary = slcb::import_records(&conn, &records, dry_run)
+        .await
+        .map_err(|e| ApplicationError::LinkedRoles(format!("import-slcb failed: {e}")))?;
+    tracing::info!(
+        inserted = summary.inserted,
+        updated = summary.updated,
+        skipped = summary.skipped,
+        dry_run,
+        "SLCB import complete"
+    );
+    println!(
+        "SLCB import: inserted={} updated={} skipped={} (dry_run={})",
+        summary.inserted, summary.updated, summary.skipped, dry_run
+    );
+    Ok(())
+}
+
+async fn match_slcb(config: Config) -> Result<(), ApplicationError> {
+    use caliborn::services::slcb;
+
+    let db = sea_orm::Database::connect(&config.database_url).await?;
+    let conn: caliborn::repositories::AlwaysCloneableConnection = db.into();
+    let summary = slcb::match_youtube_links(&conn)
+        .await
+        .map_err(|e| ApplicationError::LinkedRoles(format!("match-slcb failed: {e}")))?;
+    tracing::info!(
+        considered = summary.considered,
+        matched = summary.matched,
+        already_migrated = summary.already_migrated,
+        no_slcb_row = summary.no_slcb_row,
+        "SLCB match complete"
+    );
+    println!(
+        "SLCB match: considered={} matched={} already_migrated={} no_slcb_row={}",
+        summary.considered, summary.matched, summary.already_migrated, summary.no_slcb_row
+    );
+    Ok(())
+}
+
 async fn migrate(config: Config, op: MigrateOp) -> Result<(), ApplicationError> {
     let db = sea_orm::Database::connect(&config.database_url).await?;
     match op {
@@ -231,12 +277,8 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
             "`playlist`: port from frohike landing in a follow-up phase",
         )),
         Command::LinkedRoles { op } => linked_roles(config, op).await,
-        Command::ImportSlcb { .. } => Err(ApplicationError::NotImplemented(
-            "`import-slcb`: lands in Phase 10",
-        )),
-        Command::MatchSlcb => Err(ApplicationError::NotImplemented(
-            "`match-slcb`: lands in Phase 10",
-        )),
+        Command::ImportSlcb { path, dry_run } => import_slcb(config, path, dry_run).await,
+        Command::MatchSlcb => match_slcb(config).await,
     }
 }
 

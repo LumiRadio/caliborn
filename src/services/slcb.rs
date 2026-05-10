@@ -1,0 +1,217 @@
+//! Streamlabs Chatbot legacy data import + Discord-user matching.
+//!
+//! - **Import** loads a Streamlabs JSON dump into the `slcb_currency` table
+//!   (idempotent: rows matching `(username, user_id)` are updated in place).
+//! - **Match** walks `connected_youtube_accounts` and, for any user whose
+//!   linked YouTube channel id matches an `slcb_currency.user_id`, adds the
+//!   stored `hours*3600` to `users.watched_time` and `points` to
+//!   `users.boonbucks`, then marks the user `migrated = true` so re-runs
+//!   are no-ops.
+//!
+//! Plan note: `slcb_*` tables are kept permanently — late-joining Discord
+//! users may match SLCB rows imported years prior.
+
+use std::path::Path;
+
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, Set};
+use serde::Deserialize;
+
+use crate::{entities, repositories::AlwaysCloneableConnection};
+
+#[derive(thiserror::Error, Debug)]
+pub enum SlcbError {
+    #[error("Failed to read JSON file: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Failed to parse Streamlabs JSON: {0}")]
+    Parse(#[from] serde_json::Error),
+    #[error(transparent)]
+    Db(#[from] sea_orm::DbErr),
+}
+
+/// One row from a Streamlabs Chatbot export. Fields use serde aliases so the
+/// loader accepts both the modern (`Name`, `UserID`, `Hours`, `Points`) and
+/// snake-case shapes commonly seen in older exports.
+#[derive(Deserialize, Debug, Clone)]
+pub struct StreamlabsRecord {
+    #[serde(alias = "Name", alias = "username", alias = "name")]
+    pub username: String,
+    #[serde(default, alias = "UserID", alias = "user_id", alias = "userid")]
+    pub user_id: Option<String>,
+    #[serde(default, alias = "Hours", alias = "hours")]
+    pub hours: i32,
+    #[serde(default, alias = "Points", alias = "points")]
+    pub points: i32,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ImportSummary {
+    pub inserted: u64,
+    pub updated: u64,
+    pub skipped: u64,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct MatchSummary {
+    pub considered: u64,
+    pub matched: u64,
+    pub already_migrated: u64,
+    pub no_slcb_row: u64,
+}
+
+/// Parse a Streamlabs JSON file into an upsert plan.
+pub fn parse_streamlabs<P: AsRef<Path>>(path: P) -> Result<Vec<StreamlabsRecord>, SlcbError> {
+    let bytes = std::fs::read(path)?;
+    Ok(serde_json::from_slice(&bytes)?)
+}
+
+/// Upsert the supplied records into `slcb_currency`. Match key is
+/// `(username, user_id)`; same key + new values updates the row in place.
+pub async fn import_records(
+    db: &AlwaysCloneableConnection,
+    records: &[StreamlabsRecord],
+    dry_run: bool,
+) -> Result<ImportSummary, SlcbError> {
+    let mut summary = ImportSummary::default();
+
+    for record in records {
+        let mut q = entities::slcb_currency::Entity::find()
+            .filter(entities::slcb_currency::Column::Username.eq(&record.username));
+        q = match &record.user_id {
+            Some(uid) => q.filter(entities::slcb_currency::Column::UserId.eq(uid.as_str())),
+            None => q.filter(entities::slcb_currency::Column::UserId.is_null()),
+        };
+        let existing = q.one(&**db).await?;
+
+        if dry_run {
+            if existing.is_some() {
+                summary.updated += 1;
+            } else {
+                summary.inserted += 1;
+            }
+            continue;
+        }
+
+        match existing {
+            Some(row) => {
+                let mut active: entities::slcb_currency::ActiveModel = row.into();
+                active.points = Set(record.points);
+                active.hours = Set(record.hours);
+                active.update(&**db).await?;
+                summary.updated += 1;
+            }
+            None => {
+                entities::slcb_currency::ActiveModel {
+                    username: ActiveValue::set(record.username.clone()),
+                    user_id: ActiveValue::set(record.user_id.clone()),
+                    points: ActiveValue::set(record.points),
+                    hours: ActiveValue::set(record.hours),
+                    ..Default::default()
+                }
+                .insert(&**db)
+                .await?;
+                summary.inserted += 1;
+            }
+        }
+    }
+
+    Ok(summary)
+}
+
+/// Walk all linked YouTube channels and import any matching SLCB row that
+/// hasn't already been imported.
+pub async fn match_youtube_links(
+    db: &AlwaysCloneableConnection,
+) -> Result<MatchSummary, SlcbError> {
+    let mut summary = MatchSummary::default();
+
+    let links = entities::connected_youtube_accounts::Entity::find()
+        .all(&**db)
+        .await?;
+
+    for link in links {
+        summary.considered += 1;
+
+        let user = entities::users::Entity::find_by_id(link.user_id)
+            .one(&**db)
+            .await?;
+        let Some(user) = user else {
+            summary.no_slcb_row += 1;
+            continue;
+        };
+        if user.migrated {
+            summary.already_migrated += 1;
+            continue;
+        }
+
+        let slcb = entities::slcb_currency::Entity::find()
+            .filter(entities::slcb_currency::Column::UserId.eq(link.youtube_channel_id.as_str()))
+            .one(&**db)
+            .await?;
+        let Some(slcb) = slcb else {
+            summary.no_slcb_row += 1;
+            continue;
+        };
+
+        let new_watched = user.watched_time + (slcb.hours as i64) * 3600;
+        let new_boonbucks = user.boonbucks + slcb.points;
+        entities::users::Entity::update(entities::users::ActiveModel {
+            id: ActiveValue::unchanged(user.id),
+            watched_time: Set(new_watched),
+            boonbucks: Set(new_boonbucks),
+            migrated: Set(true),
+            ..Default::default()
+        })
+        .exec(&**db)
+        .await?;
+
+        summary.matched += 1;
+        tracing::info!(
+            user_id = user.id,
+            channel = %link.youtube_channel_id,
+            slcb_username = %slcb.username,
+            hours = slcb.hours,
+            points = slcb.points,
+            "imported SLCB data for user"
+        );
+    }
+
+    Ok(summary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_pascal_case_streamlabs_export() {
+        let json = r#"[
+            {"Name":"alice","UserID":"UCabc","Hours":10,"Points":100},
+            {"Name":"bob","UserID":null,"Hours":5,"Points":50}
+        ]"#;
+        let records: Vec<StreamlabsRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].username, "alice");
+        assert_eq!(records[0].user_id.as_deref(), Some("UCabc"));
+        assert_eq!(records[0].hours, 10);
+        assert_eq!(records[0].points, 100);
+        assert!(records[1].user_id.is_none());
+    }
+
+    #[test]
+    fn parses_snake_case_export() {
+        let json = r#"[{"username":"carol","user_id":"UCcarol","hours":7,"points":33}]"#;
+        let records: Vec<StreamlabsRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].username, "carol");
+        assert_eq!(records[0].user_id.as_deref(), Some("UCcarol"));
+    }
+
+    #[test]
+    fn missing_optional_fields_default_to_zero() {
+        let json = r#"[{"Name":"dave"}]"#;
+        let records: Vec<StreamlabsRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].username, "dave");
+        assert_eq!(records[0].hours, 0);
+        assert_eq!(records[0].points, 0);
+        assert!(records[0].user_id.is_none());
+    }
+}

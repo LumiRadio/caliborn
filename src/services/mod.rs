@@ -29,6 +29,7 @@ pub mod discord_oauth_tokens;
 pub mod economy;
 pub mod minigames;
 pub mod secrets;
+pub mod slcb;
 pub mod songs;
 pub mod stream;
 pub mod users;
