@@ -47,6 +47,7 @@ pub mod error;
 pub mod minigames;
 pub mod page;
 pub mod songs;
+pub mod stream;
 pub mod users;
 
 /// Return a JSON response with the provided value.

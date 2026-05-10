@@ -58,7 +58,14 @@ fn build_registry(conn: AlwaysCloneableConnection) -> ServiceRegistry {
     let oauth: DiscordOAuthClient =
         build_oauth2_client("", "", "http://localhost:8080/callback").unwrap();
     let ls = Arc::new(Mutex::new(MockLiquidsoapClient::new())) as Arc<Mutex<dyn LiquidsoapClient>>;
-    ServiceRegistry::new(conn, jwt, hmac, oauth, ls)
+    ServiceRegistry::new(
+        conn,
+        jwt,
+        hmac,
+        oauth,
+        ls,
+        caliborn::RealtimeBroadcaster::new(),
+    )
 }
 
 async fn insert_user(conn: &AlwaysCloneableConnection, id: i64, boonbucks: i32) {

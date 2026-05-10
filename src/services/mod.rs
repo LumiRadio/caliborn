@@ -10,11 +10,12 @@ use tokio::sync::Mutex;
 use crate::{
     DiscordOAuthClient,
     liquidsoap::LiquidsoapClient,
+    realtime::Broadcaster,
     repositories::AlwaysCloneableConnection,
     services::{
         admin::AdminCrudService, auth::AuthService, cans::CansService, cooldowns::CooldownService,
         economy::EconomyService, minigames::MinigameService, songs::SongService,
-        users::UserService,
+        stream::StreamService, users::UserService,
     },
 };
 
@@ -25,6 +26,7 @@ pub mod cooldowns;
 pub mod economy;
 pub mod minigames;
 pub mod songs;
+pub mod stream;
 pub mod users;
 
 pub struct CachedService<T> {
@@ -94,6 +96,7 @@ pub struct ServiceRegistry {
     oauth_client: DiscordOAuthClient,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     db: AlwaysCloneableConnection,
+    broadcaster: Broadcaster,
 
     // services
     admin_service: CachedService<AdminCrudService>,
@@ -104,6 +107,7 @@ pub struct ServiceRegistry {
     cooldown_service: CachedService<CooldownService>,
     song_service: CachedService<SongService>,
     minigame_service: CachedService<MinigameService>,
+    stream_service: CachedService<StreamService>,
 }
 
 impl ServiceRegistry {
@@ -113,6 +117,7 @@ impl ServiceRegistry {
         hmac_secret: Hmac<Sha256>,
         oauth_client: DiscordOAuthClient,
         liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
+        broadcaster: Broadcaster,
     ) -> Self {
         Self {
             db,
@@ -127,8 +132,14 @@ impl ServiceRegistry {
             cooldown_service: CachedService::new(),
             song_service: CachedService::new(),
             minigame_service: CachedService::new(),
+            stream_service: CachedService::new(),
             liquidsoap_client,
+            broadcaster,
         }
+    }
+
+    pub fn broadcaster(&self) -> &Broadcaster {
+        &self.broadcaster
     }
 
     pub fn admin_service(&self) -> Arc<AdminCrudService> {
@@ -175,5 +186,15 @@ impl ServiceRegistry {
     pub fn minigame_service(&self) -> Arc<MinigameService> {
         self.minigame_service
             .get_or_init(|| MinigameService::new(&self.db, self))
+    }
+
+    pub fn stream_service(&self) -> Arc<StreamService> {
+        self.stream_service.get_or_init(|| {
+            StreamService::new(
+                &self.db,
+                self.liquidsoap_client.clone(),
+                self.broadcaster.clone(),
+            )
+        })
     }
 }

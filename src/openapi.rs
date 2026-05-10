@@ -51,6 +51,12 @@ impl Modify for UserApiKeyAddon {
         crate::routes::minigames::dice_roll,
         crate::routes::minigames::pvp_challenge,
         crate::routes::minigames::slots_spin,
+        crate::routes::playback::played,
+        crate::routes::stream::skip,
+        crate::routes::stream::volume,
+        crate::routes::stream::queue_push,
+        crate::routes::stream::playlist_reload,
+        crate::routes::stream::raw,
         crate::routes::user::me,
         crate::routes::user::pay,
     )

@@ -14,10 +14,12 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
-    liquidsoap::LiquidsoapClient, openapi::ApiDoc, repositories::AlwaysCloneableConnection,
+    liquidsoap::LiquidsoapClient, openapi::ApiDoc, realtime::Broadcaster,
+    repositories::AlwaysCloneableConnection,
 };
 pub use crate::{
     liquidsoap::{LiquidsoapClientImpl, LiquidsoapError},
+    realtime::{Broadcaster as RealtimeBroadcaster, Event as RealtimeEvent},
     repositories::RepositoryError,
     services::ServiceRegistry,
 };
@@ -30,6 +32,8 @@ pub mod entities;
 pub mod fixtures;
 pub mod liquidsoap;
 pub mod pg_extension;
+/// Realtime fan-out (WebSocket events).
+pub mod realtime;
 /// Database repositories for accessing the database.
 pub mod repositories;
 /// API routes for the application.
@@ -102,6 +106,7 @@ pub fn make_app(
     db: AlwaysCloneableConnection,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
 ) -> axum::Router {
+    let broadcaster = Broadcaster::new();
     let app_state = AppState {
         service_registry: ServiceRegistry::new(
             db,
@@ -109,6 +114,7 @@ pub fn make_app(
             hmac_secret,
             oauth_client,
             liquidsoap_client,
+            broadcaster,
         ),
     };
 
@@ -119,6 +125,8 @@ pub fn make_app(
         .nest("/bears", routes::bears::routes(app_state.clone()))
         .nest("/minigames", routes::minigames::routes(app_state.clone()))
         .nest("/songs", routes::songs::routes(app_state.clone()))
+        .nest("/stream", routes::stream::routes(app_state.clone()))
+        .nest("/playback", routes::playback::routes())
         .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
         .with_state(app_state);
 
