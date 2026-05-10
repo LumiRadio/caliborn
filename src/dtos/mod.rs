@@ -30,16 +30,15 @@
 //! }
 //! ```
 
+use crate::dtos::error::CalibornResult;
 use axum::{extract::FromRequest, response::IntoResponse};
 use axum_macros::FromRequestParts;
 use error::ApiError;
 use reqwest::StatusCode;
 use sea_query::Nullable;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use utoipa::IntoParams;
 
-use crate::dtos::error::CalibornResult;
-
+pub mod admin;
 pub mod auth;
 pub mod cans;
 pub mod economy;

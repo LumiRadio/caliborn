@@ -17,7 +17,7 @@
 
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 use super::json;
 
@@ -112,39 +112,14 @@ pub struct ApiKeyDto {
     pub description: String,
 }
 
-/// A request to log in with Discord, part of the OAuth 2.0 flow.
+/// Query parameters for the GET /auth/discord/login endpoint.
 ///
-/// This is the request body for the /auth/discord/login endpoint, which is used to
-/// exchange the authorization code for an access token. The code is obtained from
-/// Discord after the user authorizes the application.
-///
-/// # Examples
-///
-/// ```rust
-/// # use caliborn::dtos::auth::DiscordLoginRequest;
-/// let login_request = DiscordLoginRequest {
-///     code: String::from("NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"),
-/// };
-/// ```
-///
-/// # External Resources
-///
-/// You can obtain an authorization code by redirecting the user to the
-/// [Discord authorization URL](https://discord.com/developers/docs/topics/oauth2#authorization-code-flow).
-///
-/// # Errors
-///
-/// If the code is invalid or expired, the login endpoint will return an error.
-#[derive(Deserialize, ToSchema)]
-#[schema(
-    examples(
-        json!({
-            "code": "NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"
-        })
-    )
-)]
-pub struct DiscordLoginRequest {
+/// Carries the Discord OAuth2 authorization code returned by Discord's
+/// authorization-code flow.
+#[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct DiscordLoginQuery {
     /// The authorization code received from Discord after the user has authorized your application.
-    #[schema(examples("NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"))]
+    #[param(example = "NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee")]
     pub code: String,
 }

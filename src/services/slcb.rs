@@ -15,6 +15,7 @@ use std::path::Path;
 
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
+use utoipa::ToSchema;
 
 use crate::{entities, repositories::AlwaysCloneableConnection};
 
@@ -26,12 +27,36 @@ pub enum SlcbError {
     Parse(#[from] serde_json::Error),
     #[error(transparent)]
     Db(#[from] sea_orm::DbErr),
+    #[error("User `{0}` not found")]
+    UserNotFound(i64),
+    #[error("SLCB username `{0}` not found")]
+    SlcbUsernameNotFound(String),
+    #[error("User `{0}` is already linked to SLCB data (migrated). Use force=true to override.")]
+    UserAlreadyMigrated(i64),
+}
+
+impl crate::dtos::error::ToPublicError for SlcbError {
+    fn as_public(&self) -> Option<crate::dtos::error::PublicError> {
+        use crate::dtos::error::PublicError;
+        use reqwest::StatusCode;
+        match self {
+            SlcbError::UserNotFound(_) | SlcbError::SlcbUsernameNotFound(_) => Some(
+                PublicError::with_owned("not-found", self.to_string(), StatusCode::NOT_FOUND),
+            ),
+            SlcbError::UserAlreadyMigrated(_) => Some(PublicError::with_owned(
+                "user-already-migrated",
+                self.to_string(),
+                StatusCode::CONFLICT,
+            )),
+            SlcbError::Io(_) | SlcbError::Parse(_) | SlcbError::Db(_) => None,
+        }
+    }
 }
 
 /// One row from a Streamlabs Chatbot export. Fields use serde aliases so the
 /// loader accepts both the modern (`Name`, `UserID`, `Hours`, `Points`) and
 /// snake-case shapes commonly seen in older exports.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, ToSchema)]
 pub struct StreamlabsRecord {
     #[serde(alias = "Name", alias = "username", alias = "name")]
     pub username: String,
@@ -185,6 +210,83 @@ pub async fn match_for_user(
     }
 
     Ok(summary)
+}
+
+/// Result of [`link_user_to_slcb_username`].
+#[derive(Debug, Clone)]
+pub struct ForcedLinkSummary {
+    pub user_id: i64,
+    pub slcb_username: String,
+    pub hours_credited: i32,
+    pub points_credited: i32,
+    pub watched_time_after: i64,
+    pub boonbucks_after: i32,
+}
+
+/// Force-link a Caliborn user to the SLCB row with the given username
+/// (case-insensitive). Credits `hours*3600` to `users.watched_time` and
+/// `points` to `users.boonbucks`, then marks the user `migrated = true`.
+///
+/// If the user is already `migrated = true`, returns
+/// [`SlcbError::UserAlreadyMigrated`] unless `force` is true. The credit is
+/// always applied additively — caller should refuse `force` after careful
+/// review.
+pub async fn link_user_to_slcb_username(
+    db: &AlwaysCloneableConnection,
+    user_id: i64,
+    slcb_username: &str,
+    force: bool,
+) -> Result<ForcedLinkSummary, SlcbError> {
+    let user = entities::users::Entity::find_by_id(user_id)
+        .one(&**db)
+        .await?
+        .ok_or(SlcbError::UserNotFound(user_id))?;
+
+    if user.migrated && !force {
+        return Err(SlcbError::UserAlreadyMigrated(user_id));
+    }
+
+    let slcb = entities::slcb_currency::Entity::find()
+        .filter(
+            sea_orm::sea_query::Expr::expr(sea_orm::sea_query::Func::lower(
+                sea_orm::sea_query::Expr::col(entities::slcb_currency::Column::Username),
+            ))
+            .eq(slcb_username.to_lowercase()),
+        )
+        .one(&**db)
+        .await?
+        .ok_or_else(|| SlcbError::SlcbUsernameNotFound(slcb_username.to_string()))?;
+
+    let new_watched = user.watched_time + (slcb.hours as i64) * 3600;
+    let new_boonbucks = user.boonbucks + slcb.points;
+
+    entities::users::Entity::update(entities::users::ActiveModel {
+        id: ActiveValue::unchanged(user.id),
+        watched_time: Set(new_watched),
+        boonbucks: Set(new_boonbucks),
+        migrated: Set(true),
+        ..Default::default()
+    })
+    .exec(&**db)
+    .await?;
+
+    tracing::info!(
+        user_id = user.id,
+        slcb_username = %slcb.username,
+        hours = slcb.hours,
+        points = slcb.points,
+        force,
+        "force-linked SLCB data to user"
+    );
+
+    Ok(ForcedLinkSummary {
+        user_id: user.id,
+        slcb_username: slcb.username,
+        hours_credited: slcb.hours,
+        points_credited: slcb.points,
+        watched_time_after: new_watched,
+        boonbucks_after: new_boonbucks,
+    })
 }
 
 /// Walk all linked YouTube channels and import any matching SLCB row that

@@ -58,6 +58,15 @@ pub const PERM_USE_BOT: Permission = Permission::new(
 pub const PERM_MANAGE_STREAM: Permission = Permission::new("manage_stream", "Manage stream", true);
 pub const PERM_MANAGE_ACTIVITY_ROLES: Permission =
     Permission::new("manage_activity_roles", "Manage activity roles", true);
+pub const PERM_MANAGE_PERMISSIONS: Permission =
+    Permission::new("manage_permissions", "Manage roles and permissions", true);
+pub const PERM_MANAGE_COOLDOWNS: Permission =
+    Permission::new("manage_cooldowns", "Manage user/global cooldowns", true);
+pub const PERM_MANAGE_SLCB: Permission = Permission::new(
+    "manage_slcb",
+    "Manage SLCB legacy data imports and matches",
+    true,
+);
 
 pub const ALL_PERMISSIONS: &[Permission] = &[
     PERM_MANAGE_USERS,
@@ -66,6 +75,9 @@ pub const ALL_PERMISSIONS: &[Permission] = &[
     PERM_USE_BOT,
     PERM_MANAGE_STREAM,
     PERM_MANAGE_ACTIVITY_ROLES,
+    PERM_MANAGE_PERMISSIONS,
+    PERM_MANAGE_COOLDOWNS,
+    PERM_MANAGE_SLCB,
 ];
 pub static ALL_PERMISSIONS_BY_NAME: once_cell::sync::Lazy<HashMap<&'static str, Permission>> =
     once_cell::sync::Lazy::new(|| ALL_PERMISSIONS.iter().map(|p| (p.name, *p)).collect());

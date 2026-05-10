@@ -15,8 +15,8 @@ use crate::{
     services::{
         admin::AdminCrudService, auth::AuthService, cans::CansService, cooldowns::CooldownService,
         discord_linked_roles::LinkedRolesService, discord_oauth_tokens::TokenStore,
-        economy::EconomyService, minigames::MinigameService, secrets::TokenSealer,
-        songs::SongService, stream::StreamService, users::UserService,
+        economy::EconomyService, minigames::MinigameService, permissions::PermissionService,
+        secrets::TokenSealer, songs::SongService, stream::StreamService, users::UserService,
     },
 };
 
@@ -28,6 +28,7 @@ pub mod discord_linked_roles;
 pub mod discord_oauth_tokens;
 pub mod economy;
 pub mod minigames;
+pub mod permissions;
 pub mod secrets;
 pub mod slcb;
 pub mod songs;
@@ -119,6 +120,7 @@ pub struct ServiceRegistry {
     stream_service: CachedService<StreamService>,
     linked_roles_service: CachedService<LinkedRolesService>,
     token_store: CachedService<TokenStore>,
+    permission_service: CachedService<PermissionService>,
 }
 
 impl ServiceRegistry {
@@ -150,6 +152,7 @@ impl ServiceRegistry {
             stream_service: CachedService::new(),
             linked_roles_service: CachedService::new(),
             token_store: CachedService::new(),
+            permission_service: CachedService::new(),
             liquidsoap_client,
             broadcaster,
             discord_application_id,
@@ -240,6 +243,11 @@ impl ServiceRegistry {
                 self.db.clone(),
             )
         })
+    }
+
+    pub fn permission_service(&self) -> Arc<PermissionService> {
+        self.permission_service
+            .get_or_init(|| PermissionService::new(&self.db))
     }
 
     pub fn token_store(&self) -> Arc<TokenStore> {

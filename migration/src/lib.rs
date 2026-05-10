@@ -21,6 +21,7 @@ mod m20260510_120000_create_radio_state;
 mod m20260510_120100_create_minigame_history;
 mod m20260510_120200_create_discord_role_connections;
 mod m20260510_120300_create_discord_oauth_tokens;
+mod m20260510_130000_seed_admin_permissions;
 
 pub struct Migrator;
 
@@ -49,6 +50,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260510_120100_create_minigame_history::Migration),
             Box::new(m20260510_120200_create_discord_role_connections::Migration),
             Box::new(m20260510_120300_create_discord_oauth_tokens::Migration),
+            Box::new(m20260510_130000_seed_admin_permissions::Migration),
         ]
     }
 }

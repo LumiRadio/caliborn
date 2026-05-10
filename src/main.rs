@@ -112,6 +112,12 @@ enum Command {
     /// Re-run the YouTube-channel-id matching pass against `connected_youtube_accounts`.
     MatchSlcb,
 
+    /// Admin operations against the local database (no HTTP).
+    Admin {
+        #[command(subcommand)]
+        op: AdminOp,
+    },
+
     /// Generate the OpenAPI schema for the HTTP API.
     Openapi {
         /// Output format.
@@ -149,6 +155,143 @@ enum MigrateOp {
     Status,
     /// Drop everything and re-apply (DANGEROUS — dev only).
     Fresh,
+}
+
+#[derive(Subcommand)]
+enum AdminOp {
+    /// Auth helpers (token minting for dev/admin tooling).
+    Auth {
+        #[command(subcommand)]
+        op: AdminAuthOp,
+    },
+    /// User read/edit operations.
+    Users {
+        #[command(subcommand)]
+        op: AdminUsersOp,
+    },
+    /// Role and permission management.
+    Perms {
+        #[command(subcommand)]
+        op: AdminPermsOp,
+    },
+    /// Cooldown management.
+    Cooldowns {
+        #[command(subcommand)]
+        op: AdminCooldownsOp,
+    },
+    /// SLCB legacy-data operations.
+    Slcb {
+        #[command(subcommand)]
+        op: AdminSlcbOp,
+    },
+}
+
+#[derive(Subcommand)]
+enum AdminAuthOp {
+    /// Mint a JWT for the given user id. Prints the token to stdout.
+    MintToken {
+        #[arg(long)]
+        user_id: i64,
+        /// Expiration in seconds. Defaults to 24h.
+        #[arg(long, default_value_t = 86400)]
+        expires_in: i64,
+    },
+}
+
+#[derive(Subcommand)]
+enum AdminUsersOp {
+    /// List users matching an optional substring or exact id.
+    List {
+        #[arg(long)]
+        query: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: u64,
+    },
+    /// Show a single user by id.
+    Show { user_id: i64 },
+    /// Set a user's boonbucks balance.
+    SetBoonbucks { user_id: i64, amount: i32 },
+    /// Set a user's watched_time in seconds.
+    SetWatchedTime { user_id: i64, seconds: i64 },
+    /// Set a user's role. Pass --clear to reset to the default role.
+    SetRole {
+        user_id: i64,
+        role: Option<String>,
+        #[arg(long)]
+        clear: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum AdminPermsOp {
+    /// List roles.
+    ListRoles,
+    /// List permissions.
+    ListPermissions,
+    /// Create a new (non-built-in) role.
+    CreateRole {
+        name: String,
+        #[arg(long)]
+        description: Option<String>,
+    },
+    /// Delete a non-built-in role.
+    DeleteRole { name: String },
+    /// Attach a permission to a role.
+    Attach { role: String, permission: String },
+    /// Detach a permission from a role.
+    Detach { role: String, permission: String },
+    /// Direct-grant a permission to a user.
+    Grant { user_id: i64, permission: String },
+    /// Direct-revoke a permission from a user.
+    Revoke { user_id: i64, permission: String },
+    /// Print effective permissions for a user.
+    Effective { user_id: i64 },
+}
+
+#[derive(Subcommand)]
+enum AdminCooldownsOp {
+    /// List cooldowns with optional filters.
+    List {
+        #[arg(long)]
+        scope: Option<String>,
+        #[arg(long)]
+        user_id: Option<i64>,
+        #[arg(long)]
+        key: Option<String>,
+    },
+    /// Delete a cooldown by its primary key.
+    Clear { id: i32 },
+    /// Insert or replace a cooldown.
+    Upsert {
+        #[arg(long)]
+        scope: String,
+        #[arg(long)]
+        user_id: Option<i64>,
+        #[arg(long)]
+        key: String,
+        /// RFC3339 timestamp, e.g. 2026-01-01T00:00:00Z.
+        #[arg(long)]
+        expires_at: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum AdminSlcbOp {
+    /// Import a Streamlabs JSON file (delegates to the existing import path).
+    Import {
+        path: PathBuf,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Re-run the YouTube-channel-id match pass.
+    Match,
+    /// Force-link a Caliborn user to a specific SLCB username.
+    Link {
+        user_id: i64,
+        slcb_username: String,
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -559,8 +702,342 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
         Command::LinkedRoles { op } => linked_roles(config, op).await,
         Command::ImportSlcb { path, dry_run } => import_slcb(config, path, dry_run).await,
         Command::MatchSlcb => match_slcb(config).await,
+        Command::Admin { op } => admin_cmd(config, op).await,
         Command::Openapi { .. } => unreachable!("handled above"),
     }
+}
+
+async fn admin_cmd(config: Config, op: AdminOp) -> Result<(), ApplicationError> {
+    use caliborn::repositories::AlwaysCloneableConnection;
+
+    let db = sea_orm::Database::connect(&config.database_url).await?;
+    let conn: AlwaysCloneableConnection = db.into();
+
+    match op {
+        AdminOp::Auth {
+            op:
+                AdminAuthOp::MintToken {
+                    user_id,
+                    expires_in,
+                },
+        } => admin_mint_token(&config, user_id, expires_in),
+        AdminOp::Users { op } => admin_users(&conn, op).await,
+        AdminOp::Perms { op } => admin_perms(&conn, op).await,
+        AdminOp::Cooldowns { op } => admin_cooldowns(&conn, op).await,
+        AdminOp::Slcb { op } => admin_slcb(&conn, op).await,
+    }
+}
+
+fn admin_mint_token(
+    config: &Config,
+    user_id: i64,
+    expires_in: i64,
+) -> Result<(), ApplicationError> {
+    use caliborn::services::auth::Claims;
+
+    let secret: Hmac<Sha256> = Hmac::new_from_slice(config.jwt.secret.as_bytes())?;
+    let claims = Claims::new(
+        (user_id as u64).into(),
+        chrono::Duration::seconds(expires_in),
+    );
+    let token = claims
+        .sign(&secret)
+        .map_err(|e| ApplicationError::LinkedRoles(format!("JWT sign failed: {e}")))?;
+    println!("{token}");
+    Ok(())
+}
+
+async fn admin_users(
+    db: &caliborn::repositories::AlwaysCloneableConnection,
+    op: AdminUsersOp,
+) -> Result<(), ApplicationError> {
+    use caliborn::entities;
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+
+    match op {
+        AdminUsersOp::List { query, limit } => {
+            let mut q = entities::users::Entity::find();
+            if let Some(s) = query.as_deref().filter(|s| !s.is_empty()) {
+                if let Ok(id) = s.parse::<i64>() {
+                    q = q.filter(entities::users::Column::Id.eq(id));
+                } else {
+                    q = q.filter(entities::users::Column::Username.like(format!("%{}%", s)));
+                }
+            }
+            let rows = q
+                .limit(limit)
+                .all(&**db)
+                .await
+                .map_err(sea_orm::DbErr::from)?;
+            for u in rows {
+                println!(
+                    "{}\t{}\trole={}\tbb={}\twatched={}\tmigrated={}",
+                    u.id,
+                    u.username.as_deref().unwrap_or("<none>"),
+                    u.role,
+                    u.boonbucks,
+                    u.watched_time,
+                    u.migrated,
+                );
+            }
+        }
+        AdminUsersOp::Show { user_id } => {
+            let u = entities::users::Entity::find_by_id(user_id)
+                .one(&**db)
+                .await
+                .map_err(sea_orm::DbErr::from)?;
+            match u {
+                Some(u) => println!("{:#?}", u),
+                None => return Err(ApplicationError::NotImplemented("user not found")),
+            }
+        }
+        AdminUsersOp::SetBoonbucks { user_id, amount } => {
+            let res = entities::users::Entity::update_many()
+                .col_expr(
+                    entities::users::Column::Boonbucks,
+                    sea_orm::sea_query::Expr::value(amount),
+                )
+                .filter(entities::users::Column::Id.eq(user_id))
+                .exec(&**db)
+                .await?;
+            println!("updated {} row(s)", res.rows_affected);
+        }
+        AdminUsersOp::SetWatchedTime { user_id, seconds } => {
+            let res = entities::users::Entity::update_many()
+                .col_expr(
+                    entities::users::Column::WatchedTime,
+                    sea_orm::sea_query::Expr::value(seconds),
+                )
+                .filter(entities::users::Column::Id.eq(user_id))
+                .exec(&**db)
+                .await?;
+            println!("updated {} row(s)", res.rows_affected);
+        }
+        AdminUsersOp::SetRole {
+            user_id,
+            role,
+            clear,
+        } => {
+            let service = caliborn::services::permissions::PermissionService::new(db);
+            let new_role = if clear { None } else { role.as_deref() };
+            service
+                .set_user_role(user_id, new_role)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(format!("set_user_role: {e}")))?;
+            println!("user {user_id} role set to {:?}", new_role);
+        }
+    }
+    Ok(())
+}
+
+async fn admin_perms(
+    db: &caliborn::repositories::AlwaysCloneableConnection,
+    op: AdminPermsOp,
+) -> Result<(), ApplicationError> {
+    let service = caliborn::services::permissions::PermissionService::new(db);
+    match op {
+        AdminPermsOp::ListRoles => {
+            for r in service
+                .list_roles()
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?
+            {
+                println!("{}\tbuilt_in={}\t{}", r.name, r.built_in, r.description);
+            }
+        }
+        AdminPermsOp::ListPermissions => {
+            for p in service
+                .list_permissions()
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?
+            {
+                println!("{}\tbuilt_in={}\t{}", p.name, p.built_in, p.description);
+            }
+        }
+        AdminPermsOp::CreateRole { name, description } => {
+            service
+                .create_role(&name, description.as_deref().unwrap_or(""))
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!("role `{name}` created");
+        }
+        AdminPermsOp::DeleteRole { name } => {
+            service
+                .delete_role(&name)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!("role `{name}` deleted");
+        }
+        AdminPermsOp::Attach { role, permission } => {
+            service
+                .attach_permission_to_role(&role, &permission)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!("attached `{permission}` to `{role}`");
+        }
+        AdminPermsOp::Detach { role, permission } => {
+            service
+                .detach_permission_from_role(&role, &permission)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!("detached `{permission}` from `{role}`");
+        }
+        AdminPermsOp::Grant {
+            user_id,
+            permission,
+        } => {
+            service
+                .grant_user_permission(user_id, &permission)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!("granted `{permission}` to user {user_id}");
+        }
+        AdminPermsOp::Revoke {
+            user_id,
+            permission,
+        } => {
+            service
+                .revoke_user_permission(user_id, &permission)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!("revoked `{permission}` from user {user_id}");
+        }
+        AdminPermsOp::Effective { user_id } => {
+            let mut perms: Vec<String> = service
+                .effective_permissions(user_id)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?
+                .into_iter()
+                .collect();
+            perms.sort();
+            for p in perms {
+                println!("{p}");
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn admin_cooldowns(
+    db: &caliborn::repositories::AlwaysCloneableConnection,
+    op: AdminCooldownsOp,
+) -> Result<(), ApplicationError> {
+    use caliborn::entities;
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
+
+    match op {
+        AdminCooldownsOp::List {
+            scope,
+            user_id,
+            key,
+        } => {
+            let mut q = entities::cooldown::Entity::find();
+            if let Some(s) = scope.as_deref() {
+                q = q.filter(entities::cooldown::Column::Scope.eq(s));
+            }
+            if let Some(u) = user_id {
+                q = q.filter(entities::cooldown::Column::UserId.eq(u));
+            }
+            if let Some(k) = key.as_deref() {
+                q = q.filter(entities::cooldown::Column::Key.eq(k));
+            }
+            for c in q.all(&**db).await? {
+                println!(
+                    "{}\tscope={}\tuser={:?}\tkey={}\texpires_at={}",
+                    c.id, c.scope, c.user_id, c.key, c.expires_at
+                );
+            }
+        }
+        AdminCooldownsOp::Clear { id } => {
+            entities::cooldown::Entity::delete_by_id(id)
+                .exec(&**db)
+                .await?;
+            println!("cooldown {id} deleted");
+        }
+        AdminCooldownsOp::Upsert {
+            scope,
+            user_id,
+            key,
+            expires_at,
+        } => {
+            let parsed = chrono::DateTime::parse_from_rfc3339(&expires_at)
+                .map_err(|e| ApplicationError::LinkedRoles(format!("invalid expires_at: {e}")))?
+                .with_timezone(&chrono::Utc)
+                .naive_utc();
+
+            // Drop existing
+            let mut del = entities::cooldown::Entity::delete_many()
+                .filter(entities::cooldown::Column::Scope.eq(&scope))
+                .filter(entities::cooldown::Column::Key.eq(&key));
+            del = match user_id {
+                Some(uid) => del.filter(entities::cooldown::Column::UserId.eq(uid)),
+                None => del.filter(entities::cooldown::Column::UserId.is_null()),
+            };
+            del.exec(&**db).await?;
+
+            use sea_orm::ActiveModelTrait;
+            let m = entities::cooldown::ActiveModel {
+                scope: Set(scope),
+                user_id: Set(user_id),
+                key: Set(key),
+                expires_at: Set(parsed),
+                ..Default::default()
+            }
+            .insert(&**db)
+            .await?;
+            println!("cooldown upserted id={}", m.id);
+        }
+    }
+    Ok(())
+}
+
+async fn admin_slcb(
+    db: &caliborn::repositories::AlwaysCloneableConnection,
+    op: AdminSlcbOp,
+) -> Result<(), ApplicationError> {
+    use caliborn::services::slcb;
+
+    match op {
+        AdminSlcbOp::Import { path, dry_run } => {
+            let records = slcb::parse_streamlabs(&path)
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            let summary = slcb::import_records(db, &records, dry_run)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!(
+                "SLCB import: inserted={} updated={} skipped={} (dry_run={dry_run})",
+                summary.inserted, summary.updated, summary.skipped
+            );
+        }
+        AdminSlcbOp::Match => {
+            let summary = slcb::match_youtube_links(db)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!(
+                "SLCB match: considered={} matched={} already_migrated={} no_slcb_row={}",
+                summary.considered, summary.matched, summary.already_migrated, summary.no_slcb_row
+            );
+        }
+        AdminSlcbOp::Link {
+            user_id,
+            slcb_username,
+            force,
+        } => {
+            let summary = slcb::link_user_to_slcb_username(db, user_id, &slcb_username, force)
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            println!(
+                "linked user {} to slcb={} (+{}h, +{}bb) -> watched_time={} boonbucks={}",
+                summary.user_id,
+                summary.slcb_username,
+                summary.hours_credited,
+                summary.points_credited,
+                summary.watched_time_after,
+                summary.boonbucks_after,
+            );
+        }
+    }
+    Ok(())
 }
 
 fn main() -> Result<(), ApplicationError> {

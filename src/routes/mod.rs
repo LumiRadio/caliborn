@@ -1,3 +1,5 @@
+/// Admin API routes (RBAC-gated user/role/cooldown/slcb management).
+pub mod admin;
 /// Authentication routes
 pub mod auth;
 /// Bear routes
