@@ -106,7 +106,15 @@ pub async fn app(
 ) -> (axum::Router, ContainerAsync<Postgres>) {
     let (db, container) = db.await;
     (
-        caliborn::make_app(secret, hmac_secret, discord_client, db.into(), liquidsoap),
+        caliborn::make_app(
+            secret,
+            hmac_secret,
+            discord_client,
+            db.into(),
+            liquidsoap,
+            "test_app_id".to_string(),
+            "LumiRadio".to_string(),
+        ),
         container,
     )
 }

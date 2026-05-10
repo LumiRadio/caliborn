@@ -105,6 +105,8 @@ pub fn make_app(
     oauth_client: DiscordOAuthClient,
     db: AlwaysCloneableConnection,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
+    discord_application_id: String,
+    linked_roles_platform_name: String,
 ) -> axum::Router {
     let broadcaster = Broadcaster::new();
     let app_state = AppState {
@@ -115,6 +117,8 @@ pub fn make_app(
             oauth_client,
             liquidsoap_client,
             broadcaster,
+            discord_application_id,
+            linked_roles_platform_name,
         ),
     };
 

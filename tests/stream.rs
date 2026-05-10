@@ -57,7 +57,16 @@ fn build(
     let oauth: DiscordOAuthClient =
         build_oauth2_client("", "", "http://localhost:8080/callback").unwrap();
     let ls = Arc::new(Mutex::new(ls_mock)) as Arc<Mutex<dyn LiquidsoapClient>>;
-    ServiceRegistry::new(conn, jwt, hmac, oauth, ls, broadcaster)
+    ServiceRegistry::new(
+        conn,
+        jwt,
+        hmac,
+        oauth,
+        ls,
+        broadcaster,
+        "test_app_id".to_string(),
+        "LumiRadio".to_string(),
+    )
 }
 
 async fn insert_song(conn: &AlwaysCloneableConnection, file_path: &str, hash: &str) {

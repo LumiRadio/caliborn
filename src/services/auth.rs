@@ -26,6 +26,7 @@ use crate::{
     repositories::{
         AlwaysCloneableConnection, BaseRepository, RepositoryError, users::UserRepositoryExt,
     },
+    services::discord_linked_roles::{LinkedRolesService, UserMetadata},
 };
 
 use super::UserId;
@@ -128,6 +129,8 @@ pub struct AuthService {
     hmac_secret: Hmac<Sha256>,
     http_client: reqwest::Client,
     key_generator: PakControllerOsSha256,
+    linked_roles: std::sync::Arc<LinkedRolesService>,
+    db: AlwaysCloneableConnection,
 }
 
 impl AuthService {
@@ -136,6 +139,7 @@ impl AuthService {
         oauth_client: DiscordOAuthClient,
         jwt_secret: Hmac<Sha256>,
         hmac_secret: Hmac<Sha256>,
+        linked_roles: std::sync::Arc<LinkedRolesService>,
     ) -> Self {
         let http_client = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
@@ -155,6 +159,8 @@ impl AuthService {
             hmac_secret,
             http_client,
             key_generator,
+            linked_roles,
+            db: db.clone(),
         }
     }
 
@@ -215,12 +221,57 @@ impl AuthService {
             }
         }
 
+        // Best-effort: push linked-role metadata. Requires the user-scope
+        // `role_connections.write`. Failures only mean the scope wasn't
+        // granted or Discord rejected it; login still succeeds.
+        if let Err(e) = self
+            .push_linked_role_metadata(user_id as i64, token.secret())
+            .await
+        {
+            tracing::warn!(user_id, error = ?e, "Failed to push linked-role metadata");
+        }
+
         Ok(UserToken {
             token: jwt,
             user_id,
             expires_in: expiration.num_seconds() as u64,
             expires_at: expires_at.timestamp() as u64,
         })
+    }
+
+    /// Build a [`UserMetadata`] snapshot from the current DB state and push
+    /// it via the [`LinkedRolesService`].
+    async fn push_linked_role_metadata(
+        &self,
+        user_id: i64,
+        access_token: &str,
+    ) -> Result<(), AuthServiceError> {
+        use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+
+        let user = entities::users::Entity::find_by_id(user_id)
+            .one(&*self.db)
+            .await
+            .map_err(|e| AuthServiceError::OtherOAuthError(e.to_string()))?
+            .ok_or(AuthServiceError::OtherOAuthError(
+                "User row missing after creation".into(),
+            ))?;
+        let can_count = entities::cans::Entity::find()
+            .filter(entities::cans::Column::AddedBy.eq(user_id))
+            .count(&*self.db)
+            .await
+            .map_err(|e| AuthServiceError::OtherOAuthError(e.to_string()))?;
+
+        let listening_hours = (user.watched_time / 3600) as i32;
+        let metadata = UserMetadata {
+            listening_hours,
+            can_count: can_count.try_into().unwrap_or(i32::MAX),
+            boonbucks: user.boonbucks,
+        };
+
+        self.linked_roles
+            .push_for_user(user_id, access_token, &metadata)
+            .await
+            .map_err(|e| AuthServiceError::OtherOAuthError(e.to_string()))
     }
 
     async fn fetch_discord_connections(

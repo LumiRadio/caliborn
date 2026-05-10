@@ -65,6 +65,8 @@ fn build_registry(conn: AlwaysCloneableConnection) -> ServiceRegistry {
         oauth,
         ls,
         caliborn::RealtimeBroadcaster::new(),
+        "test_app_id".to_string(),
+        "LumiRadio".to_string(),
     )
 }
 

@@ -14,8 +14,8 @@ use crate::{
     repositories::AlwaysCloneableConnection,
     services::{
         admin::AdminCrudService, auth::AuthService, cans::CansService, cooldowns::CooldownService,
-        economy::EconomyService, minigames::MinigameService, songs::SongService,
-        stream::StreamService, users::UserService,
+        discord_linked_roles::LinkedRolesService, economy::EconomyService,
+        minigames::MinigameService, songs::SongService, stream::StreamService, users::UserService,
     },
 };
 
@@ -23,6 +23,7 @@ pub mod admin;
 pub mod auth;
 pub mod cans;
 pub mod cooldowns;
+pub mod discord_linked_roles;
 pub mod economy;
 pub mod minigames;
 pub mod songs;
@@ -97,6 +98,8 @@ pub struct ServiceRegistry {
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     db: AlwaysCloneableConnection,
     broadcaster: Broadcaster,
+    discord_application_id: String,
+    linked_roles_platform_name: String,
 
     // services
     admin_service: CachedService<AdminCrudService>,
@@ -108,6 +111,7 @@ pub struct ServiceRegistry {
     song_service: CachedService<SongService>,
     minigame_service: CachedService<MinigameService>,
     stream_service: CachedService<StreamService>,
+    linked_roles_service: CachedService<LinkedRolesService>,
 }
 
 impl ServiceRegistry {
@@ -118,6 +122,8 @@ impl ServiceRegistry {
         oauth_client: DiscordOAuthClient,
         liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
         broadcaster: Broadcaster,
+        discord_application_id: String,
+        linked_roles_platform_name: String,
     ) -> Self {
         Self {
             db,
@@ -133,8 +139,11 @@ impl ServiceRegistry {
             song_service: CachedService::new(),
             minigame_service: CachedService::new(),
             stream_service: CachedService::new(),
+            linked_roles_service: CachedService::new(),
             liquidsoap_client,
             broadcaster,
+            discord_application_id,
+            linked_roles_platform_name,
         }
     }
 
@@ -148,12 +157,14 @@ impl ServiceRegistry {
     }
 
     pub fn auth_service(&self) -> Arc<AuthService> {
+        let linked_roles = self.linked_roles_service();
         self.auth_service.get_or_init(|| {
             AuthService::new(
                 &self.db,
                 self.oauth_client.clone(),
                 self.jwt_secret.clone(),
                 self.hmac_secret.clone(),
+                linked_roles,
             )
         })
     }
@@ -194,6 +205,20 @@ impl ServiceRegistry {
                 &self.db,
                 self.liquidsoap_client.clone(),
                 self.broadcaster.clone(),
+            )
+        })
+    }
+
+    pub fn linked_roles_service(&self) -> Arc<LinkedRolesService> {
+        self.linked_roles_service.get_or_init(|| {
+            let http_client = reqwest::Client::builder()
+                .build()
+                .expect("reqwest::Client::build cannot fail with default config");
+            LinkedRolesService::new(
+                http_client,
+                self.discord_application_id.clone(),
+                self.linked_roles_platform_name.clone(),
+                self.db.clone(),
             )
         })
     }

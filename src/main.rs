@@ -27,6 +27,8 @@ enum ApplicationError {
     Liquidsoap(#[from] LiquidsoapError),
     #[error("{0}")]
     NotImplemented(&'static str),
+    #[error("Linked-roles error: {0}")]
+    LinkedRoles(String),
 }
 
 #[derive(Parser)]
@@ -119,7 +121,12 @@ enum MigrateOp {
 #[derive(Subcommand)]
 enum LinkedRolesOp {
     /// Register the role-connections metadata schema with Discord.
-    Register,
+    /// Requires a bot token via `--bot-token` or `CALIBORN_DISCORD_BOT_TOKEN`.
+    Register {
+        /// Discord bot token. Falls back to `CALIBORN_DISCORD_BOT_TOKEN` env var.
+        #[arg(long)]
+        bot_token: Option<String>,
+    },
 }
 
 async fn serve(config: Config) -> Result<(), ApplicationError> {
@@ -146,6 +153,8 @@ async fn serve(config: Config) -> Result<(), ApplicationError> {
         oauth_client,
         db.into(),
         Arc::new(Mutex::new(liquidsoap_client)),
+        config.discord.client_id.clone(),
+        "LumiRadio".to_string(),
     );
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
         .await
@@ -156,6 +165,36 @@ async fn serve(config: Config) -> Result<(), ApplicationError> {
         .inspect_err(|e| tracing::error!(error = ?e))?;
 
     Ok(())
+}
+
+async fn linked_roles(config: Config, op: LinkedRolesOp) -> Result<(), ApplicationError> {
+    use caliborn::services::discord_linked_roles::{LinkedRolesService, default_schema};
+
+    match op {
+        LinkedRolesOp::Register { bot_token } => {
+            let bot_token = bot_token
+                .or_else(|| std::env::var("CALIBORN_DISCORD_BOT_TOKEN").ok())
+                .ok_or(ApplicationError::NotImplemented(
+                    "Provide --bot-token or set CALIBORN_DISCORD_BOT_TOKEN",
+                ))?;
+
+            // We don't need a DB for register; pass an unused connection.
+            let db = sea_orm::Database::connect(&config.database_url).await?;
+            let http_client = reqwest::Client::new();
+            let service = LinkedRolesService::new(
+                http_client,
+                config.discord.client_id.clone(),
+                "LumiRadio".to_string(),
+                db.into(),
+            );
+            service
+                .register_metadata(&bot_token, &default_schema())
+                .await
+                .map_err(|e| ApplicationError::LinkedRoles(e.to_string()))?;
+            tracing::info!("Linked-roles metadata schema registered.");
+            Ok(())
+        }
+    }
 }
 
 async fn migrate(config: Config, op: MigrateOp) -> Result<(), ApplicationError> {
@@ -183,9 +222,7 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
         Command::Playlist { .. } => Err(ApplicationError::NotImplemented(
             "`playlist`: port from frohike landing in a follow-up phase",
         )),
-        Command::LinkedRoles { .. } => Err(ApplicationError::NotImplemented(
-            "`linked-roles register`: lands in Phase 8",
-        )),
+        Command::LinkedRoles { op } => linked_roles(config, op).await,
         Command::ImportSlcb { .. } => Err(ApplicationError::NotImplemented(
             "`import-slcb`: lands in Phase 10",
         )),
