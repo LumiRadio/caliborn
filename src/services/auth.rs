@@ -26,7 +26,10 @@ use crate::{
     repositories::{
         AlwaysCloneableConnection, BaseRepository, RepositoryError, users::UserRepositoryExt,
     },
-    services::discord_linked_roles::{LinkedRolesService, UserMetadata},
+    services::{
+        discord_linked_roles::{LinkedRolesService, UserMetadata},
+        discord_oauth_tokens::TokenStore,
+    },
 };
 
 use super::UserId;
@@ -130,6 +133,7 @@ pub struct AuthService {
     http_client: reqwest::Client,
     key_generator: PakControllerOsSha256,
     linked_roles: std::sync::Arc<LinkedRolesService>,
+    token_store: std::sync::Arc<TokenStore>,
     db: AlwaysCloneableConnection,
 }
 
@@ -140,6 +144,7 @@ impl AuthService {
         jwt_secret: Hmac<Sha256>,
         hmac_secret: Hmac<Sha256>,
         linked_roles: std::sync::Arc<LinkedRolesService>,
+        token_store: std::sync::Arc<TokenStore>,
     ) -> Self {
         let http_client = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
@@ -160,6 +165,7 @@ impl AuthService {
             http_client,
             key_generator,
             linked_roles,
+            token_store,
             db: db.clone(),
         }
     }
@@ -195,6 +201,37 @@ impl AuthService {
         let jwt = claims
             .sign(&self.jwt_secret)
             .map_err(|_| AuthServiceError::InvalidJwtToken)?;
+
+        // Persist (encrypted) Discord access + refresh tokens so we can refresh
+        // out-of-band (e.g. on /played for linked-roles updates) without
+        // needing the user to re-login. Best-effort: a missing refresh token
+        // (which Discord only omits if scopes were not granted) or a sealing
+        // failure must not break login.
+        if let Some(refresh) = token_response.refresh_token() {
+            let scopes = token_response
+                .scopes()
+                .map(|ss| ss.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" "))
+                .unwrap_or_default();
+            let access_expires_at = expires_at.naive_utc();
+            if let Err(e) = self
+                .token_store
+                .store(
+                    user_id as i64,
+                    token.secret(),
+                    refresh.secret(),
+                    access_expires_at,
+                    &scopes,
+                )
+                .await
+            {
+                tracing::warn!(user_id, error = ?e, "Failed to persist Discord OAuth tokens");
+            }
+        } else {
+            tracing::warn!(
+                user_id,
+                "Discord did not return a refresh token; auto-refresh will not work for this user"
+            );
+        }
 
         // Best-effort: pull Discord connections (requires `connections` scope on
         // the original auth URL) and persist any YouTube channels. Failures

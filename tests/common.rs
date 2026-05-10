@@ -114,6 +114,12 @@ pub async fn app(
             liquidsoap,
             "test_app_id".to_string(),
             "LumiRadio".to_string(),
+            std::sync::Arc::new(
+                caliborn::services::secrets::TokenSealer::from_hex(
+                    "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+                )
+                .unwrap(),
+            ),
         ),
         container,
     )

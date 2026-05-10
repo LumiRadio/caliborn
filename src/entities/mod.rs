@@ -4,6 +4,7 @@ pub mod api_keys;
 pub mod cans;
 pub mod connected_youtube_accounts;
 pub mod cooldown;
+pub mod discord_oauth_tokens;
 pub mod discord_role_connections;
 pub mod favourite_songs;
 pub mod minigame_history;

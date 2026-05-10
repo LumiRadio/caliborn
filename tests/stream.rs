@@ -47,6 +47,15 @@ mockall::mock! {
     }
 }
 
+fn caliborn_test_sealer() -> std::sync::Arc<caliborn::services::secrets::TokenSealer> {
+    std::sync::Arc::new(
+        caliborn::services::secrets::TokenSealer::from_hex(
+            "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        )
+        .unwrap(),
+    )
+}
+
 fn build(
     conn: AlwaysCloneableConnection,
     broadcaster: RealtimeBroadcaster,
@@ -66,6 +75,7 @@ fn build(
         broadcaster,
         "test_app_id".to_string(),
         "LumiRadio".to_string(),
+        caliborn_test_sealer(),
     )
 }
 

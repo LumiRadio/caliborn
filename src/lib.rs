@@ -15,7 +15,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     liquidsoap::LiquidsoapClient, openapi::ApiDoc, realtime::Broadcaster,
-    repositories::AlwaysCloneableConnection,
+    repositories::AlwaysCloneableConnection, services::secrets::TokenSealer,
 };
 pub use crate::{
     liquidsoap::{LiquidsoapClientImpl, LiquidsoapError},
@@ -107,6 +107,7 @@ pub fn make_app(
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     discord_application_id: String,
     linked_roles_platform_name: String,
+    token_sealer: Arc<TokenSealer>,
 ) -> axum::Router {
     let broadcaster = Broadcaster::new();
     let app_state = AppState {
@@ -119,6 +120,7 @@ pub fn make_app(
             broadcaster,
             discord_application_id,
             linked_roles_platform_name,
+            token_sealer,
         ),
     };
 

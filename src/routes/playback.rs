@@ -76,7 +76,49 @@ pub async fn played(
         .record_played(&req.file_path, req.title, req.artist, req.album)
         .await?;
 
+    // Best-effort: if this play came from a song request, debounce-push the
+    // requester's linked-role metadata to Discord. Spawned so /played
+    // returns even if Discord is slow.
+    let registry = state.service_registry.clone();
+    let file_path = req.file_path.clone();
+    tokio::spawn(async move {
+        if let Err(e) = maybe_push_linked_roles(&registry, &file_path).await {
+            tracing::debug!(error = ?e, "linked-role debounce push failed");
+        }
+    });
+
     Ok(PlayedResponse { played_at })
+}
+
+async fn maybe_push_linked_roles(
+    registry: &crate::services::ServiceRegistry,
+    file_path: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use crate::{entities, services::discord_linked_roles};
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
+    let db = registry.db_handle();
+    let last_req = entities::song_requests::Entity::find()
+        .filter(entities::song_requests::Column::SongId.eq(file_path))
+        .order_by_desc(entities::song_requests::Column::CreatedAt)
+        .one(&*db)
+        .await?;
+    let Some(req) = last_req else {
+        return Ok(());
+    };
+    let user_id = req.user_id;
+
+    if !discord_linked_roles::should_push_after(&db, user_id, chrono::Duration::hours(1)).await? {
+        return Ok(());
+    }
+
+    let access_token = registry.token_store().valid_access_token(user_id).await?;
+    let metadata = discord_linked_roles::build_metadata(&db, user_id).await?;
+    registry
+        .linked_roles_service()
+        .push_for_user(user_id, &access_token, &metadata)
+        .await?;
+    Ok(())
 }
 
 pub fn routes() -> Router<AppState> {

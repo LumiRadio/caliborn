@@ -49,6 +49,15 @@ mockall::mock! {
     }
 }
 
+fn caliborn_test_sealer() -> std::sync::Arc<caliborn::services::secrets::TokenSealer> {
+    std::sync::Arc::new(
+        caliborn::services::secrets::TokenSealer::from_hex(
+            "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        )
+        .unwrap(),
+    )
+}
+
 fn build_registry(conn: AlwaysCloneableConnection) -> ServiceRegistry {
     let jwt = Hmac::<Sha256>::new_from_slice(b"jwt").unwrap();
     let hmac = Hmac::<Sha256>::new_from_slice(b"hmac").unwrap();
@@ -64,6 +73,7 @@ fn build_registry(conn: AlwaysCloneableConnection) -> ServiceRegistry {
         caliborn::RealtimeBroadcaster::new(),
         "test_app_id".to_string(),
         "LumiRadio".to_string(),
+        caliborn_test_sealer(),
     )
 }
 

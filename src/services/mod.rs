@@ -14,8 +14,9 @@ use crate::{
     repositories::AlwaysCloneableConnection,
     services::{
         admin::AdminCrudService, auth::AuthService, cans::CansService, cooldowns::CooldownService,
-        discord_linked_roles::LinkedRolesService, economy::EconomyService,
-        minigames::MinigameService, songs::SongService, stream::StreamService, users::UserService,
+        discord_linked_roles::LinkedRolesService, discord_oauth_tokens::TokenStore,
+        economy::EconomyService, minigames::MinigameService, secrets::TokenSealer,
+        songs::SongService, stream::StreamService, users::UserService,
     },
 };
 
@@ -24,8 +25,10 @@ pub mod auth;
 pub mod cans;
 pub mod cooldowns;
 pub mod discord_linked_roles;
+pub mod discord_oauth_tokens;
 pub mod economy;
 pub mod minigames;
+pub mod secrets;
 pub mod songs;
 pub mod stream;
 pub mod users;
@@ -100,6 +103,7 @@ pub struct ServiceRegistry {
     broadcaster: Broadcaster,
     discord_application_id: String,
     linked_roles_platform_name: String,
+    token_sealer: Arc<TokenSealer>,
 
     // services
     admin_service: CachedService<AdminCrudService>,
@@ -112,6 +116,7 @@ pub struct ServiceRegistry {
     minigame_service: CachedService<MinigameService>,
     stream_service: CachedService<StreamService>,
     linked_roles_service: CachedService<LinkedRolesService>,
+    token_store: CachedService<TokenStore>,
 }
 
 impl ServiceRegistry {
@@ -124,6 +129,7 @@ impl ServiceRegistry {
         broadcaster: Broadcaster,
         discord_application_id: String,
         linked_roles_platform_name: String,
+        token_sealer: Arc<TokenSealer>,
     ) -> Self {
         Self {
             db,
@@ -140,15 +146,21 @@ impl ServiceRegistry {
             minigame_service: CachedService::new(),
             stream_service: CachedService::new(),
             linked_roles_service: CachedService::new(),
+            token_store: CachedService::new(),
             liquidsoap_client,
             broadcaster,
             discord_application_id,
             linked_roles_platform_name,
+            token_sealer,
         }
     }
 
     pub fn broadcaster(&self) -> &Broadcaster {
         &self.broadcaster
+    }
+
+    pub fn db_handle(&self) -> AlwaysCloneableConnection {
+        self.db.clone()
     }
 
     pub fn admin_service(&self) -> Arc<AdminCrudService> {
@@ -158,6 +170,7 @@ impl ServiceRegistry {
 
     pub fn auth_service(&self) -> Arc<AuthService> {
         let linked_roles = self.linked_roles_service();
+        let token_store = self.token_store();
         self.auth_service.get_or_init(|| {
             AuthService::new(
                 &self.db,
@@ -165,6 +178,7 @@ impl ServiceRegistry {
                 self.jwt_secret.clone(),
                 self.hmac_secret.clone(),
                 linked_roles,
+                token_store,
             )
         })
     }
@@ -219,6 +233,20 @@ impl ServiceRegistry {
                 self.discord_application_id.clone(),
                 self.linked_roles_platform_name.clone(),
                 self.db.clone(),
+            )
+        })
+    }
+
+    pub fn token_store(&self) -> Arc<TokenStore> {
+        self.token_store.get_or_init(|| {
+            let http_client = reqwest::Client::builder()
+                .build()
+                .expect("reqwest::Client::build cannot fail with default config");
+            TokenStore::new(
+                self.db.clone(),
+                self.token_sealer.clone(),
+                self.oauth_client.clone(),
+                http_client,
             )
         })
     }

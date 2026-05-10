@@ -71,9 +71,64 @@ pub async fn pay(
     })
 }
 
+#[utoipa::path(
+    post,
+    path = "/user/me/sync-linked-role",
+    responses(
+        (status = 204, description = "Linked-role metadata pushed to Discord"),
+        (status = 401, description = "Auth or stored token missing", body = ErrorResponse),
+        (status = 502, description = "Discord rejected the push or refresh", body = ErrorResponse),
+        (status = 500, body = ErrorResponse)
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
+#[axum::debug_handler]
+pub async fn sync_linked_role(
+    AuthenticatedUser(actor): AuthenticatedUser,
+    State(state): State<AppState>,
+) -> CalibornResult<axum::http::StatusCode> {
+    use crate::dtos::error::{ApiError, PublicError};
+    use reqwest::StatusCode;
+
+    let registry = &state.service_registry;
+    let user_id: i64 = actor.user_id().into();
+
+    let access_token = registry
+        .token_store()
+        .valid_access_token(user_id)
+        .await
+        .map_err(|e| {
+            ApiError::Public(PublicError::with_owned(
+                "no-stored-tokens",
+                format!("Stored Discord tokens missing or unrefreshable: {e}"),
+                StatusCode::UNAUTHORIZED,
+            ))
+        })?;
+
+    let metadata =
+        crate::services::discord_linked_roles::build_metadata(&registry.db_handle(), user_id)
+            .await
+            .map_err(|e| ApiError::Internal(anyhow::anyhow!("failed to build metadata: {e}")))?;
+
+    registry
+        .linked_roles_service()
+        .push_for_user(user_id, &access_token, &metadata)
+        .await
+        .map_err(|e| {
+            ApiError::Public(PublicError::with_owned(
+                "discord-push-failed",
+                format!("Discord rejected the push: {e}"),
+                StatusCode::BAD_GATEWAY,
+            ))
+        })?;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/me", get(me))
         .route("/me/pay", post(pay))
+        .route("/me/sync-linked-role", post(sync_linked_role))
         .layer(axum::middleware::from_fn_with_state(state, authenticate))
 }

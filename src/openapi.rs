@@ -59,6 +59,7 @@ impl Modify for UserApiKeyAddon {
         crate::routes::stream::raw,
         crate::routes::user::me,
         crate::routes::user::pay,
+        crate::routes::user::sync_linked_role,
     )
 )]
 pub struct ApiDoc;

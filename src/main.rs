@@ -29,6 +29,8 @@ enum ApplicationError {
     NotImplemented(&'static str),
     #[error("Linked-roles error: {0}")]
     LinkedRoles(String),
+    #[error(transparent)]
+    Sealer(#[from] caliborn::services::secrets::SealerError),
 }
 
 #[derive(Parser)]
@@ -147,6 +149,11 @@ async fn serve(config: Config) -> Result<(), ApplicationError> {
         .await
         .inspect_err(|e| tracing::error!(error = ?e))?;
 
+    let token_sealer = Arc::new(
+        caliborn::services::secrets::TokenSealer::from_env()
+            .inspect_err(|e| tracing::error!(error = ?e))?,
+    );
+
     let app = caliborn::make_app(
         secret,
         hmac_secret,
@@ -155,6 +162,7 @@ async fn serve(config: Config) -> Result<(), ApplicationError> {
         Arc::new(Mutex::new(liquidsoap_client)),
         config.discord.client_id.clone(),
         "LumiRadio".to_string(),
+        token_sealer,
     );
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
         .await

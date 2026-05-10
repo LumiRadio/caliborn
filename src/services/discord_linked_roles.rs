@@ -1,17 +1,21 @@
 //! Discord [Linked Roles](https://discord.com/developers/docs/tutorials/configuring-app-metadata-for-linked-roles)
 //! integration.
 //!
-//! Two distinct flows:
+//! Three flows:
 //!
 //! 1. **One-time metadata registration** — `caliborn linked-roles register`
 //!    PUTs the role-connection metadata schema for the application using a
 //!    bot token. Run this once per app, or whenever the schema changes.
 //!
-//! 2. **Per-user push** — after Discord OAuth login (with the user-scope
-//!    `role_connections.write`), push the current user's metadata values so
-//!    Discord can evaluate role-connection rules. We update on login only;
-//!    we do not store refresh tokens, so push-on-played is deferred until
-//!    refresh-token storage lands.
+//! 2. **Per-user push on login** — after Discord OAuth login (with the
+//!    user-scope `role_connections.write`), push the current user's metadata
+//!    values so Discord can evaluate role-connection rules.
+//!
+//! 3. **Out-of-band push** — `/playback/played` ingest and the manual
+//!    `POST /user/me/sync-linked-role` endpoint use the encrypted refresh
+//!    token (stored at login by Phase 8.5) to mint a fresh access token via
+//!    [`crate::services::discord_oauth_tokens::TokenStore`] and push
+//!    updated metadata without requiring the user to re-login.
 
 use std::sync::Arc;
 
@@ -195,6 +199,44 @@ impl LinkedRolesService {
         }
         Ok(())
     }
+}
+
+/// Build a fresh [`UserMetadata`] snapshot from the database for `user_id`.
+pub async fn build_metadata(
+    db: &AlwaysCloneableConnection,
+    user_id: i64,
+) -> Result<UserMetadata, sea_orm::DbErr> {
+    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+
+    let user = entities::users::Entity::find_by_id(user_id)
+        .one(&**db)
+        .await?
+        .ok_or(sea_orm::DbErr::RecordNotFound(format!("users[{user_id}]")))?;
+    let can_count = entities::cans::Entity::find()
+        .filter(entities::cans::Column::AddedBy.eq(user_id))
+        .count(&**db)
+        .await?;
+    Ok(UserMetadata {
+        listening_hours: (user.watched_time / 3600) as i32,
+        can_count: can_count.try_into().unwrap_or(i32::MAX),
+        boonbucks: user.boonbucks,
+    })
+}
+
+/// Returns true if `user_id`'s linked-role snapshot is older than `min_age`
+/// or has never been pushed. Used by `/played` to debounce re-pushes.
+pub async fn should_push_after(
+    db: &AlwaysCloneableConnection,
+    user_id: i64,
+    min_age: chrono::Duration,
+) -> Result<bool, sea_orm::DbErr> {
+    let row = entities::discord_role_connections::Entity::find_by_id(user_id)
+        .one(&**db)
+        .await?;
+    Ok(match row.and_then(|r| r.last_pushed_at) {
+        None => true,
+        Some(last) => chrono::Utc::now().naive_utc() - last >= min_age,
+    })
 }
 
 /// Boxed helper used by the registry's cached service slot.
