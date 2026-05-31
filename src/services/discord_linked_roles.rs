@@ -52,19 +52,19 @@ pub fn default_schema() -> Vec<MetadataField> {
     vec![
         MetadataField {
             key: "listening_hours".into(),
-            name: "Listening Hours".into(),
-            description: "Total hours listened to LumiRadio.".into(),
+            name: "Listening Hours greater than or equal to".into(),
+            description: "Total hours listened to LumiRadio".into(),
             type_: METADATA_TYPE_INTEGER_GTE,
         },
         MetadataField {
             key: "can_count".into(),
-            name: "Cans Added".into(),
+            name: "Cans Added greater than or equal to".into(),
             description: "Number of cans added to Can Town.".into(),
             type_: METADATA_TYPE_INTEGER_GTE,
         },
         MetadataField {
             key: "boonbucks".into(),
-            name: "Boonbucks".into(),
+            name: "Boonbucks greater than or equal to".into(),
             description: "Boonbucks balance.".into(),
             type_: METADATA_TYPE_INTEGER_GTE,
         },
