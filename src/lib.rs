@@ -133,7 +133,18 @@ pub fn make_app(
         liquidsoap_ingest_token,
     };
 
-    let router = Router::new()
+    router(app_state)
+}
+
+/// Assembles the application [`Router`] from an already-constructed [`AppState`].
+///
+/// This is the router-building tail shared by [`make_app`] (production) and the
+/// integration-test scenario harness, which needs to construct its own
+/// [`ServiceRegistry`]/[`Broadcaster`] up front (to keep handles for direct
+/// service-layer driving and broadcast assertions) and then build a `Router`
+/// that shares that exact state.
+pub fn router(app_state: AppState) -> axum::Router {
+    Router::new()
         .nest("/auth", routes::auth::routes())
         .nest("/user", routes::user::routes(app_state.clone()))
         .nest("/cans", routes::cans::routes(app_state.clone()))
@@ -145,7 +156,5 @@ pub fn make_app(
         .nest("/admin", routes::admin::routes(app_state.clone()))
         .merge(routes::ws::routes())
         .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
-        .with_state(app_state);
-
-    router
+        .with_state(app_state)
 }
