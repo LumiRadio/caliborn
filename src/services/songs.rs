@@ -213,6 +213,9 @@ impl SongService {
             cooldown_info,
         };
 
+        cooldown.set(&self.cooldown_service, user_id).await?;
+        song_cooldown.set(&self.cooldown_service).await?;
+
         Ok(song)
     }
 
