@@ -1041,6 +1041,7 @@ async fn admin_slcb(
 }
 
 fn main() -> Result<(), ApplicationError> {
+    tracing_subscriber::fmt().init();
     let cli = Cli::parse();
 
     tokio::runtime::Builder::new_multi_thread()
