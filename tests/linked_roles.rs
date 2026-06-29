@@ -1,63 +1,23 @@
-//! Tests for the linked-roles persistence layer.
-//!
-//! The Discord HTTP calls (one-time `register_metadata` and per-user
-//! `push_for_user`) hit `https://discord.com` directly and are not unit-
-//! tested here — they would need an HTTPS mock server. We verify:
-//!  - the `default_schema()` shape Discord expects
-//!  - the `UserMetadata` JSON shape Discord expects
-//!  - the `discord_role_connections` snapshot row roundtrips cleanly via
-//!    sea-orm
+//! Tests for the linked-roles persistence layer. The Discord HTTP calls are
+//! not exercised here (they would need an HTTPS mock). Uses the shared
+//! `ScenarioEnv` harness (see `common.rs`) for the DB-backed snapshot test.
+
+mod common;
+use common::*;
 
 use caliborn::{
     entities,
-    repositories::AlwaysCloneableConnection,
     services::discord_linked_roles::{UserMetadata, default_schema},
 };
-use migration::MigratorTrait;
-use rstest::{fixture, rstest};
-use sea_orm::{ActiveValue, DatabaseConnection, EntityTrait};
-use testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner};
-use testcontainers_modules::postgres::Postgres;
-
-#[fixture]
-async fn db() -> (AlwaysCloneableConnection, ContainerAsync<Postgres>) {
-    let container = testcontainers_modules::postgres::Postgres::default()
-        .with_tag("12")
-        .start()
-        .await
-        .expect("Failed to start postgres container");
-
-    let conn: DatabaseConnection = sea_orm::Database::connect(&format!(
-        "postgres://postgres:postgres@{}:{}/postgres",
-        container.get_host().await.unwrap(),
-        container.get_host_port_ipv4(5432).await.unwrap()
-    ))
-    .await
-    .expect("Failed to connect to postgres");
-
-    migration::Migrator::up(&conn, None)
-        .await
-        .expect("Failed to run migrations");
-
-    (AlwaysCloneableConnection::from(conn), container)
-}
-
-async fn insert_user(conn: &AlwaysCloneableConnection, id: i64) {
-    entities::users::Entity::insert(entities::users::ActiveModel {
-        id: ActiveValue::set(id),
-        ..Default::default()
-    })
-    .exec(&**conn)
-    .await
-    .unwrap();
-}
+use rstest::rstest;
+use sea_orm::{ActiveValue, EntityTrait};
 
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn snapshot_roundtrips(#[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>)) {
-    let (conn, _c) = db;
-    insert_user(&conn, 1).await;
+async fn snapshot_roundtrips(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    env.insert_user(1, 0, 0).await;
 
     entities::discord_role_connections::Entity::insert(
         entities::discord_role_connections::ActiveModel {
@@ -68,12 +28,12 @@ async fn snapshot_roundtrips(#[future] db: (AlwaysCloneableConnection, Container
             boonbucks_snapshot: ActiveValue::set(Some(500)),
         },
     )
-    .exec(&*conn)
+    .exec(&*env.conn)
     .await
     .unwrap();
 
     let row = entities::discord_role_connections::Entity::find_by_id(1_i64)
-        .one(&*conn)
+        .one(&*env.conn)
         .await
         .unwrap()
         .unwrap();

@@ -1,115 +1,25 @@
-use std::sync::Arc;
+//! PvP minigame tests. Uses the shared `ScenarioEnv` harness (see `common.rs`).
+
+mod common;
+use common::*;
 
 use caliborn::{
-    DiscordOAuthClient, ServiceRegistry, build_oauth2_client, entities,
-    liquidsoap::LiquidsoapClient,
-    repositories::AlwaysCloneableConnection,
+    entities,
     services::{UserId, minigames::pvp::PvpServiceError},
 };
-use hmac::{Hmac, Mac};
-use migration::MigratorTrait;
-use rstest::{fixture, rstest};
-use sea_orm::{ActiveValue, DatabaseConnection, EntityTrait, PaginatorTrait};
-use sha2::Sha256;
-use testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner};
-use testcontainers_modules::postgres::Postgres;
-use tokio::sync::Mutex;
-
-#[fixture]
-async fn db() -> (AlwaysCloneableConnection, ContainerAsync<Postgres>) {
-    let container = testcontainers_modules::postgres::Postgres::default()
-        .with_tag("12")
-        .start()
-        .await
-        .expect("Failed to start postgres container");
-
-    let conn: DatabaseConnection = sea_orm::Database::connect(&format!(
-        "postgres://postgres:postgres@{}:{}/postgres",
-        container.get_host().await.unwrap(),
-        container.get_host_port_ipv4(5432).await.unwrap()
-    ))
-    .await
-    .expect("Failed to connect to postgres");
-
-    migration::Migrator::up(&conn, None)
-        .await
-        .expect("Failed to run migrations");
-
-    (AlwaysCloneableConnection::from(conn), container)
-}
-
-mockall::mock! {
-    pub LiquidsoapClient {}
-
-    #[async_trait::async_trait]
-    impl LiquidsoapClient for LiquidsoapClient {
-        async fn command(&mut self, cmd: &str) -> Result<String, caliborn::LiquidsoapError>;
-        async fn command_with_reconnect(&mut self, cmd: &str) -> Result<String, caliborn::LiquidsoapError>;
-        async fn shutdown(mut self) -> Result<(), caliborn::LiquidsoapError>;
-    }
-}
-
-fn caliborn_test_sealer() -> std::sync::Arc<caliborn::services::secrets::TokenSealer> {
-    std::sync::Arc::new(
-        caliborn::services::secrets::TokenSealer::from_hex(
-            "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
-        )
-        .unwrap(),
-    )
-}
-
-fn build_registry(conn: AlwaysCloneableConnection) -> ServiceRegistry {
-    let jwt = Hmac::<Sha256>::new_from_slice(b"jwt").unwrap();
-    let hmac = Hmac::<Sha256>::new_from_slice(b"hmac").unwrap();
-    let oauth: DiscordOAuthClient =
-        build_oauth2_client("", "", "http://localhost:8080/callback").unwrap();
-    let ls = Arc::new(Mutex::new(MockLiquidsoapClient::new())) as Arc<Mutex<dyn LiquidsoapClient>>;
-    ServiceRegistry::new(
-        conn,
-        jwt,
-        hmac,
-        oauth,
-        ls,
-        caliborn::RealtimeBroadcaster::new(),
-        "test_app_id".to_string(),
-        "LumiRadio".to_string(),
-        caliborn_test_sealer(),
-        "playlist".to_string(),
-    )
-}
-
-async fn insert_user(conn: &AlwaysCloneableConnection, id: i64, boonbucks: i32) {
-    entities::users::Entity::insert(entities::users::ActiveModel {
-        id: ActiveValue::set(id),
-        boonbucks: ActiveValue::set(boonbucks),
-        ..Default::default()
-    })
-    .exec(&**conn)
-    .await
-    .unwrap();
-}
-
-async fn balance(conn: &AlwaysCloneableConnection, id: i64) -> i32 {
-    entities::users::Entity::find_by_id(id)
-        .one(&**conn)
-        .await
-        .unwrap()
-        .unwrap()
-        .boonbucks
-}
+use rstest::rstest;
+use sea_orm::{EntityTrait, PaginatorTrait};
 
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn challenge_resolves_and_transfers_bet(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-    insert_user(&conn, 1, 100).await;
-    insert_user(&conn, 2, 100).await;
+async fn challenge_resolves_and_transfers_bet(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    env.insert_user(1, 100, 0).await;
+    env.insert_user(2, 100, 0).await;
 
-    let registry = build_registry(conn.clone());
-    let result = registry
+    let result = env
+        .registry
         .minigame_service()
         .pvp
         .challenge(UserId::from(1_i64), UserId::from(2_i64))
@@ -122,17 +32,17 @@ async fn challenge_resolves_and_transfers_bet(
     if result.challenger_won {
         assert_eq!(result.challenger_balance, 110);
         assert_eq!(result.opponent_balance, 90);
-        assert_eq!(balance(&conn, 1).await, 110);
-        assert_eq!(balance(&conn, 2).await, 90);
+        assert_eq!(env.balance(1).await, 110);
+        assert_eq!(env.balance(2).await, 90);
     } else {
         assert_eq!(result.challenger_balance, 90);
         assert_eq!(result.opponent_balance, 110);
-        assert_eq!(balance(&conn, 1).await, 90);
-        assert_eq!(balance(&conn, 2).await, 110);
+        assert_eq!(env.balance(1).await, 90);
+        assert_eq!(env.balance(2).await, 110);
     }
 
     let history_count = entities::minigame_history::Entity::find()
-        .count(&*conn)
+        .count(&*env.conn)
         .await
         .unwrap();
     assert_eq!(history_count, 1);
@@ -141,80 +51,70 @@ async fn challenge_resolves_and_transfers_bet(
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn challenge_rejects_self(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-    insert_user(&conn, 1, 100).await;
+async fn challenge_rejects_self(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    env.insert_user(1, 100, 0).await;
 
-    let registry = build_registry(conn.clone());
-    let err = registry
+    let err = env
+        .registry
         .minigame_service()
         .pvp
         .challenge(UserId::from(1_i64), UserId::from(1_i64))
         .await
         .unwrap_err();
     assert!(matches!(err, PvpServiceError::SelfChallenge));
-    assert_eq!(balance(&conn, 1).await, 100);
+    assert_eq!(env.balance(1).await, 100);
 }
 
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn challenge_rejects_challenger_short_on_funds(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-    insert_user(&conn, 1, 5).await;
-    insert_user(&conn, 2, 100).await;
+async fn challenge_rejects_challenger_short_on_funds(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    env.insert_user(1, 5, 0).await;
+    env.insert_user(2, 100, 0).await;
 
-    let registry = build_registry(conn.clone());
-    let err = registry
+    let err = env
+        .registry
         .minigame_service()
         .pvp
         .challenge(UserId::from(1_i64), UserId::from(2_i64))
         .await
         .unwrap_err();
     assert!(matches!(err, PvpServiceError::ChallengerInsufficientFunds));
-    assert_eq!(balance(&conn, 1).await, 5);
-    assert_eq!(balance(&conn, 2).await, 100);
+    assert_eq!(env.balance(1).await, 5);
+    assert_eq!(env.balance(2).await, 100);
 }
 
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn challenge_rejects_opponent_short_on_funds(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-    insert_user(&conn, 1, 100).await;
-    insert_user(&conn, 2, 5).await;
+async fn challenge_rejects_opponent_short_on_funds(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    env.insert_user(1, 100, 0).await;
+    env.insert_user(2, 5, 0).await;
 
-    let registry = build_registry(conn.clone());
-    let err = registry
+    let err = env
+        .registry
         .minigame_service()
         .pvp
         .challenge(UserId::from(1_i64), UserId::from(2_i64))
         .await
         .unwrap_err();
     assert!(matches!(err, PvpServiceError::OpponentInsufficientFunds));
-    assert_eq!(balance(&conn, 1).await, 100);
-    assert_eq!(balance(&conn, 2).await, 5);
+    assert_eq!(env.balance(1).await, 100);
+    assert_eq!(env.balance(2).await, 5);
 }
 
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn second_challenge_within_cooldown_rejected(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-    insert_user(&conn, 1, 1000).await;
-    insert_user(&conn, 2, 1000).await;
+async fn second_challenge_within_cooldown_rejected(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    env.insert_user(1, 1000, 0).await;
+    env.insert_user(2, 1000, 0).await;
 
-    let registry = build_registry(conn.clone());
-    let mg = registry.minigame_service();
-
+    let mg = env.registry.minigame_service();
     mg.pvp
         .challenge(UserId::from(1_i64), UserId::from(2_i64))
         .await

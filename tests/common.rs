@@ -27,12 +27,12 @@ use tower::ServiceExt;
 
 async fn seed(conn: &DatabaseConnection) -> anyhow::Result<()> {
     caliborn::fixtures::seed::<caliborn::entities::songs::ActiveModel>(
-        &conn,
+        conn,
         "tests/fixtures/songs.yaml",
     )
     .await?;
     caliborn::fixtures::seed::<caliborn::entities::songs_fulltext::ActiveModel>(
-        &conn,
+        conn,
         "tests/fixtures/songs_fulltext.yaml",
     )
     .await?;
@@ -48,7 +48,7 @@ impl LogConsumer for StdoutLogConsumer {
         &'a self,
         record: &'a testcontainers::core::logs::LogFrame,
     ) -> serenity::futures::future::BoxFuture<'a, ()> {
-        Box::pin(async move { println!("{}", String::from_utf8_lossy(&record.bytes())) })
+        Box::pin(async move { println!("{}", String::from_utf8_lossy(record.bytes())) })
     }
 }
 
@@ -304,6 +304,42 @@ impl ScenarioEnv {
             file_hash: ActiveValue::set(file_hash.to_string()),
             bitrate: ActiveValue::set(320),
         })
+        .exec(&*self.conn)
+        .await
+        .unwrap();
+    }
+
+    /// Insert a user with the full set of fields the SLCB/migration flows care
+    /// about (notably `migrated`).
+    pub async fn insert_user_full(
+        &self,
+        id: i64,
+        boonbucks: i32,
+        watched_time: i64,
+        migrated: bool,
+    ) {
+        entities::users::Entity::insert(entities::users::ActiveModel {
+            id: ActiveValue::set(id),
+            boonbucks: ActiveValue::set(boonbucks),
+            watched_time: ActiveValue::set(watched_time),
+            migrated: ActiveValue::set(migrated),
+            ..Default::default()
+        })
+        .exec(&*self.conn)
+        .await
+        .unwrap();
+    }
+
+    /// Link a YouTube channel to a user (for SLCB-match / connections flows).
+    pub async fn link_youtube(&self, user_id: i64, channel_id: &str) {
+        entities::connected_youtube_accounts::Entity::insert(
+            entities::connected_youtube_accounts::ActiveModel {
+                user_id: ActiveValue::set(user_id),
+                youtube_channel_id: ActiveValue::set(channel_id.to_string()),
+                youtube_channel_name: ActiveValue::set("Channel".into()),
+                ..Default::default()
+            },
+        )
         .exec(&*self.conn)
         .await
         .unwrap();

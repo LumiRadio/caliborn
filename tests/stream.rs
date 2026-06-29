@@ -1,116 +1,20 @@
-use std::sync::Arc;
+//! Stream-service tests (Liquidsoap commands + realtime broadcast). Uses the
+//! shared `ScenarioEnv` harness (see `common.rs`); each test supplies its own
+//! Liquidsoap mock via `scenario_with_liquidsoap`.
 
-use caliborn::{
-    DiscordOAuthClient, RealtimeBroadcaster, RealtimeEvent, ServiceRegistry, build_oauth2_client,
-    entities, liquidsoap::LiquidsoapClient, repositories::AlwaysCloneableConnection,
-};
-use hmac::{Hmac, Mac};
-use migration::MigratorTrait;
-use rstest::{fixture, rstest};
-use sea_orm::{ActiveValue, DatabaseConnection, EntityTrait, PaginatorTrait};
-use sha2::Sha256;
-use testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner};
-use testcontainers_modules::postgres::Postgres;
-use tokio::sync::Mutex;
+mod common;
+use common::*;
 
-#[fixture]
-async fn db() -> (AlwaysCloneableConnection, ContainerAsync<Postgres>) {
-    let container = testcontainers_modules::postgres::Postgres::default()
-        .with_tag("12")
-        .start()
-        .await
-        .expect("Failed to start postgres container");
+use caliborn::{RealtimeEvent, entities};
+use sea_orm::{EntityTrait, PaginatorTrait};
 
-    let conn: DatabaseConnection = sea_orm::Database::connect(&format!(
-        "postgres://postgres:postgres@{}:{}/postgres",
-        container.get_host().await.unwrap(),
-        container.get_host_port_ipv4(5432).await.unwrap()
-    ))
-    .await
-    .expect("Failed to connect to postgres");
-
-    migration::Migrator::up(&conn, None)
-        .await
-        .expect("Failed to run migrations");
-
-    (AlwaysCloneableConnection::from(conn), container)
-}
-
-mockall::mock! {
-    pub LiquidsoapClient {}
-
-    #[async_trait::async_trait]
-    impl LiquidsoapClient for LiquidsoapClient {
-        async fn command(&mut self, cmd: &str) -> Result<String, caliborn::LiquidsoapError>;
-        async fn command_with_reconnect(&mut self, cmd: &str) -> Result<String, caliborn::LiquidsoapError>;
-        async fn shutdown(mut self) -> Result<(), caliborn::LiquidsoapError>;
-    }
-}
-
-fn caliborn_test_sealer() -> std::sync::Arc<caliborn::services::secrets::TokenSealer> {
-    std::sync::Arc::new(
-        caliborn::services::secrets::TokenSealer::from_hex(
-            "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
-        )
-        .unwrap(),
-    )
-}
-
-fn build(
-    conn: AlwaysCloneableConnection,
-    broadcaster: RealtimeBroadcaster,
-    ls_mock: MockLiquidsoapClient,
-) -> ServiceRegistry {
-    let jwt = Hmac::<Sha256>::new_from_slice(b"jwt").unwrap();
-    let hmac = Hmac::<Sha256>::new_from_slice(b"hmac").unwrap();
-    let oauth: DiscordOAuthClient =
-        build_oauth2_client("", "", "http://localhost:8080/callback").unwrap();
-    let ls = Arc::new(Mutex::new(ls_mock)) as Arc<Mutex<dyn LiquidsoapClient>>;
-    ServiceRegistry::new(
-        conn,
-        jwt,
-        hmac,
-        oauth,
-        ls,
-        broadcaster,
-        "test_app_id".to_string(),
-        "LumiRadio".to_string(),
-        caliborn_test_sealer(),
-        "playlist".to_string(),
-    )
-}
-
-async fn insert_song(conn: &AlwaysCloneableConnection, file_path: &str, hash: &str) {
-    entities::songs::Entity::insert(entities::songs::ActiveModel {
-        file_path: ActiveValue::set(file_path.to_string()),
-        title: ActiveValue::set("Title".into()),
-        artist: ActiveValue::set("Artist".into()),
-        album: ActiveValue::set("Album".into()),
-        played: ActiveValue::set(0),
-        requested: ActiveValue::set(0),
-        duration: ActiveValue::set(180.0),
-        file_hash: ActiveValue::set(hash.to_string()),
-        bitrate: ActiveValue::set(320),
-    })
-    .exec(&**conn)
-    .await
-    .unwrap();
-}
-
-#[rstest]
-#[awt]
 #[tokio::test]
-async fn record_played_inserts_history_increments_count_and_broadcasts(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-    insert_song(&conn, "/music/example.flac", "hash1").await;
+async fn record_played_inserts_history_increments_count_and_broadcasts() {
+    let env = scenario_with_liquidsoap(MockLiquidsoapClient::new()).await;
+    env.insert_song("/music/example.flac", "hash1", 180.0).await;
 
-    let broadcaster = RealtimeBroadcaster::new();
-    let mut subscriber = broadcaster.subscribe();
-    let registry = build(conn.clone(), broadcaster, MockLiquidsoapClient::new());
-
-    let stream = registry.stream_service();
+    let mut subscriber = env.broadcaster.subscribe();
+    let stream = env.registry.stream_service();
     let played_at = stream
         .record_played(
             "/music/example.flac",
@@ -122,13 +26,13 @@ async fn record_played_inserts_history_increments_count_and_broadcasts(
         .unwrap();
 
     let history_count = entities::played_songs::Entity::find()
-        .count(&*conn)
+        .count(&*env.conn)
         .await
         .unwrap();
     assert_eq!(history_count, 1);
 
     let song = entities::songs::Entity::find_by_id("/music/example.flac".to_string())
-        .one(&*conn)
+        .one(&*env.conn)
         .await
         .unwrap()
         .unwrap();
@@ -151,51 +55,37 @@ async fn record_played_inserts_history_increments_count_and_broadcasts(
     }
 }
 
-#[rstest]
-#[awt]
 #[tokio::test]
-async fn skip_invokes_liquidsoap_command(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-
+async fn skip_invokes_liquidsoap_command() {
     let mut ls = MockLiquidsoapClient::new();
     ls.expect_command_with_reconnect()
         .withf(|cmd| cmd == "request.skip")
         .times(1)
         .returning(|_| Ok("Done.\nEND".to_string()));
 
-    let registry = build(conn.clone(), RealtimeBroadcaster::new(), ls);
-    let r = registry.stream_service().skip().await.unwrap();
+    let env = scenario_with_liquidsoap(ls).await;
+    let r = env.registry.stream_service().skip().await.unwrap();
     assert!(r.response.contains("Done"));
 }
 
-#[rstest]
-#[awt]
 #[tokio::test]
-async fn set_volume_rejects_out_of_range(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-
+async fn set_volume_rejects_out_of_range() {
     // Mock should NOT be called.
-    let ls = MockLiquidsoapClient::new();
-    let registry = build(conn.clone(), RealtimeBroadcaster::new(), ls);
-    let err = registry.stream_service().set_volume(2.0).await.unwrap_err();
+    let env = scenario_with_liquidsoap(MockLiquidsoapClient::new()).await;
+    let err = env
+        .registry
+        .stream_service()
+        .set_volume(2.0)
+        .await
+        .unwrap_err();
     assert!(matches!(
         err,
         caliborn::services::stream::StreamServiceError::InvalidVolume
     ));
 }
 
-#[rstest]
-#[awt]
 #[tokio::test]
-async fn push_queue_uses_correct_target(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _c) = db;
-
+async fn push_queue_uses_correct_target() {
     let mut ls = MockLiquidsoapClient::new();
     ls.expect_command_with_reconnect()
         .withf(|cmd| cmd == "srq.push /music/song.flac")
@@ -206,10 +96,9 @@ async fn push_queue_uses_correct_target(
         .times(1)
         .returning(|_| Ok("Done.\nEND".into()));
 
-    let broadcaster = RealtimeBroadcaster::new();
-    let mut subscriber = broadcaster.subscribe();
-    let registry = build(conn.clone(), broadcaster, ls);
-    let stream = registry.stream_service();
+    let env = scenario_with_liquidsoap(ls).await;
+    let mut subscriber = env.broadcaster.subscribe();
+    let stream = env.registry.stream_service();
 
     stream.push_queue("/music/song.flac", false).await.unwrap();
     stream.push_queue("/music/song.flac", true).await.unwrap();

@@ -1,46 +1,21 @@
+//! CooldownService tests. Uses the shared `ScenarioEnv` harness (see
+//! `common.rs`); the cooldown service is read off `env.registry`.
+
+mod common;
+use common::*;
+
 use caliborn::{
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository,
+        BaseRepository,
         cooldowns::{CooldownScope, CreateCooldownDto},
     },
-    services::cooldowns::{CooldownService, GlobalCooldown, global::CanCooldown},
+    services::cooldowns::{GlobalCooldown, global::CanCooldown},
 };
-use migration::MigratorTrait;
-use rstest::{fixture, rstest};
-use sea_orm::DatabaseConnection;
-use testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner};
-use testcontainers_modules::postgres::Postgres;
+use rstest::rstest;
 
-#[fixture]
-async fn db() -> (AlwaysCloneableConnection, ContainerAsync<Postgres>) {
-    let container = testcontainers_modules::postgres::Postgres::default()
-        .with_tag("12")
-        .start()
-        .await
-        .expect("Failed to start postgres container");
-
-    let conn: DatabaseConnection = sea_orm::Database::connect(&format!(
-        "postgres://postgres:postgres@{}:{}/postgres",
-        container.get_host().await.unwrap(),
-        container.get_host_port_ipv4(5432).await.unwrap()
-    ))
-    .await
-    .expect("Failed to connect to postgres");
-
-    migration::Migrator::up(&conn, None)
-        .await
-        .expect("Failed to run migrations");
-
-    (AlwaysCloneableConnection::from(conn), container)
-}
-
-async fn insert_global_row(
-    conn: &AlwaysCloneableConnection,
-    key: &str,
-    expires_at: chrono::NaiveDateTime,
-) {
-    BaseRepository::<entities::cooldown::Entity>::new(conn)
+async fn insert_global_row(env: &ScenarioEnv, key: &str, expires_at: chrono::NaiveDateTime) {
+    BaseRepository::<entities::cooldown::Entity>::new(&env.conn)
         .add(CreateCooldownDto {
             scope: CooldownScope::Global.to_string(),
             user_id: None,
@@ -54,14 +29,12 @@ async fn insert_global_row(
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn get_global_returns_none_for_expired_row(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _container) = db;
-    let service = CooldownService::new(&conn);
+async fn get_global_returns_none_for_expired_row(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    let service = env.registry.cooldown_service();
 
     let past = chrono::Utc::now().naive_utc() - chrono::Duration::seconds(600);
-    insert_global_row(&conn, "can", past).await;
+    insert_global_row(&env, "can", past).await;
 
     let cooldown = service
         .get_global_cooldown("can")
@@ -76,14 +49,12 @@ async fn get_global_returns_none_for_expired_row(
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn set_global_overwrites_expired_row(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _container) = db;
-    let service = CooldownService::new(&conn);
+async fn set_global_overwrites_expired_row(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    let service = env.registry.cooldown_service();
 
     let past = chrono::Utc::now().naive_utc() - chrono::Duration::seconds(600);
-    insert_global_row(&conn, "can", past).await;
+    insert_global_row(&env, "can", past).await;
 
     // Pre-fix this errored with `GlobalCooldownAlreadyExists`.
     service
@@ -105,15 +76,13 @@ async fn set_global_overwrites_expired_row(
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn cancooldown_full_cycle(
-    #[future] db: (AlwaysCloneableConnection, ContainerAsync<Postgres>),
-) {
-    let (conn, _container) = db;
-    let service = CooldownService::new(&conn);
+async fn cancooldown_full_cycle(#[future] scenario: ScenarioEnv) {
+    let env = scenario;
+    let service = env.registry.cooldown_service();
 
     // Stale row in DB (e.g. left over from a previous run).
     let past = chrono::Utc::now().naive_utc() - chrono::Duration::seconds(900);
-    insert_global_row(&conn, &CanCooldown.to_string(), past).await;
+    insert_global_row(&env, &CanCooldown.to_string(), past).await;
 
     assert!(
         !CanCooldown.on_cooldown(&service).await.unwrap(),
