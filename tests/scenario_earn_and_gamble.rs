@@ -15,9 +15,7 @@ use sea_orm::EntityTrait;
 #[rstest]
 #[awt]
 #[tokio::test]
-async fn activity_credits_then_slots_debits_then_cooldown_blocks(
-    #[future] scenario: ScenarioEnv,
-) {
+async fn activity_credits_then_slots_debits_then_cooldown_blocks(#[future] scenario: ScenarioEnv) {
     let env = scenario;
     let uid: i64 = 1001;
     env.insert_user(uid, 0, 0).await;

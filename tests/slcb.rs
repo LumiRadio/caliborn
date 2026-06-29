@@ -32,7 +32,9 @@ async fn import_inserts_then_updates(#[future] scenario: ScenarioEnv) {
         },
     ];
 
-    let s1 = slcb::import_records(&env.conn, &records, false).await.unwrap();
+    let s1 = slcb::import_records(&env.conn, &records, false)
+        .await
+        .unwrap();
     assert_eq!(s1.inserted, 2);
     assert_eq!(s1.updated, 0);
 
@@ -51,7 +53,9 @@ async fn import_inserts_then_updates(#[future] scenario: ScenarioEnv) {
             points: 70,
         },
     ];
-    let s2 = slcb::import_records(&env.conn, &updated, false).await.unwrap();
+    let s2 = slcb::import_records(&env.conn, &updated, false)
+        .await
+        .unwrap();
     assert_eq!(s2.inserted, 0);
     assert_eq!(s2.updated, 2);
 }
@@ -67,7 +71,9 @@ async fn dry_run_imports_nothing(#[future] scenario: ScenarioEnv) {
         hours: 10,
         points: 100,
     }];
-    let summary = slcb::import_records(&env.conn, &records, true).await.unwrap();
+    let summary = slcb::import_records(&env.conn, &records, true)
+        .await
+        .unwrap();
     assert_eq!(summary.inserted, 1);
 
     let count = entities::slcb_currency::Entity::find()

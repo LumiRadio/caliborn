@@ -2,6 +2,7 @@ use axum::Router;
 
 use crate::{AppState, services::auth::authenticate};
 
+pub mod admin_crud;
 pub mod cooldowns;
 pub mod permissions;
 pub mod slcb;

@@ -1,5 +1,5 @@
 entities:
-    sea generate entity -o src/entities --with-serde deserialize --with-prelude none
+    sea generate entity -o src/entities --with-serde both --with-prelude none
 
 fmt:
     cargo fmt --all
