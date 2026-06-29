@@ -67,6 +67,8 @@ pub const PERM_MANAGE_SLCB: Permission = Permission::new(
     "Manage SLCB legacy data imports and matches",
     true,
 );
+pub const PERM_USE_ADMIN_CRUD: Permission =
+    Permission::new("use_admin_crud", "Use admin CRUD operations", true);
 
 pub const ALL_PERMISSIONS: &[Permission] = &[
     PERM_MANAGE_USERS,
@@ -78,6 +80,7 @@ pub const ALL_PERMISSIONS: &[Permission] = &[
     PERM_MANAGE_PERMISSIONS,
     PERM_MANAGE_COOLDOWNS,
     PERM_MANAGE_SLCB,
+    PERM_USE_ADMIN_CRUD,
 ];
 pub static ALL_PERMISSIONS_BY_NAME: once_cell::sync::Lazy<HashMap<&'static str, Permission>> =
     once_cell::sync::Lazy::new(|| ALL_PERMISSIONS.iter().map(|p| (p.name, *p)).collect());
