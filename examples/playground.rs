@@ -1,12 +1,5 @@
-use caliborn::{
-    dtos::songs::SearchParams,
-    entities,
-    pg_extension::{ToTsQuery, ToTsVector, TsQueryTrait, Unnest},
-};
-use sea_orm::{EntityTrait, Iterable, QueryFilter, QueryTrait};
-use sea_query::{
-    Alias, BinOper, CommonTableExpression, Expr, Func, PostgresQueryBuilder, Query, SelectStatement,
-};
+use caliborn::{dtos::songs::SearchParams, entities, pg_extension::TsQueryTrait};
+use sea_orm::{EntityTrait, QueryFilter, QueryTrait};
 
 fn main() {
     let search_params = SearchParams {
@@ -17,7 +10,7 @@ fn main() {
         ..Default::default()
     };
 
-    let mut query = entities::songs::Entity::find()
+    let query = entities::songs::Entity::find()
         .inner_join(entities::songs_fulltext::Entity)
         .filter(
             entities::songs_fulltext::Column::Tsvector
