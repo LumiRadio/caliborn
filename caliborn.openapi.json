@@ -15,8 +15,10 @@
     "/admin/cooldowns": {
       "get": {
         "tags": [
-          "crate::routes::admin::cooldowns"
+          "Admin",
+          "Cooldowns"
         ],
+        "summary": "List cooldowns, optionally filtered by scope, user_id, or key.",
         "operationId": "list_cooldowns",
         "parameters": [
           {
@@ -108,8 +110,10 @@
       },
       "post": {
         "tags": [
-          "crate::routes::admin::cooldowns"
+          "Admin",
+          "Cooldowns"
         ],
+        "summary": "Upsert a cooldown. If a cooldown with the same (scope, key, user_id) exists, it will be replaced.",
         "operationId": "upsert_cooldown",
         "requestBody": {
           "content": {
@@ -164,8 +168,10 @@
       },
       "delete": {
         "tags": [
-          "crate::routes::admin::cooldowns"
+          "Admin",
+          "Cooldowns"
         ],
+        "summary": "Bulk clear cooldowns, optionally filtered by scope, user_id, or key.",
         "operationId": "bulk_clear_cooldowns",
         "parameters": [
           {
@@ -239,8 +245,10 @@
     "/admin/cooldowns/{id}": {
       "delete": {
         "tags": [
-          "crate::routes::admin::cooldowns"
+          "Admin",
+          "Cooldowns"
         ],
+        "summary": "Delete a cooldown by its ID.",
         "operationId": "delete_cooldown",
         "parameters": [
           {
@@ -291,7 +299,8 @@
     "/admin/crud/_meta": {
       "get": {
         "tags": [
-          "crate::routes::admin::crud"
+          "Admin",
+          "CRUD"
         ],
         "summary": "Every resource name the registry serves.",
         "operationId": "meta",
@@ -353,7 +362,8 @@
     "/admin/crud/{resource}": {
       "get": {
         "tags": [
-          "crate::routes::admin::crud"
+          "Admin",
+          "CRUD"
         ],
         "summary": "List a page of records for `resource`.",
         "operationId": "list",
@@ -449,7 +459,8 @@
       },
       "post": {
         "tags": [
-          "crate::routes::admin::crud"
+          "Admin",
+          "CRUD"
         ],
         "summary": "Create a record. The body is validated against the resource's create DTO.",
         "operationId": "create",
@@ -546,9 +557,10 @@
     "/admin/crud/{resource}/_schema": {
       "get": {
         "tags": [
-          "crate::routes::admin::crud"
+          "Admin",
+          "CRUD"
         ],
-        "summary": "Column metadata for `resource` — drives generic admin form rendering.",
+        "summary": "Column metadata for `resource`",
         "operationId": "schema",
         "parameters": [
           {
@@ -629,7 +641,8 @@
     "/admin/crud/{resource}/{id}": {
       "get": {
         "tags": [
-          "crate::routes::admin::crud"
+          "Admin",
+          "CRUD"
         ],
         "summary": "Read a single record by primary key.",
         "operationId": "read",
@@ -724,7 +737,8 @@
       },
       "put": {
         "tags": [
-          "crate::routes::admin::crud"
+          "Admin",
+          "CRUD"
         ],
         "summary": "Partially update a record. Omitted fields keep their current value.",
         "operationId": "edit",
@@ -828,7 +842,8 @@
       },
       "delete": {
         "tags": [
-          "crate::routes::admin::crud"
+          "Admin",
+          "CRUD"
         ],
         "summary": "Delete a record by primary key.",
         "operationId": "delete",
@@ -920,8 +935,10 @@
     "/admin/permissions": {
       "get": {
         "tags": [
-          "crate::routes::admin::permissions"
+          "Admin",
+          "RBAC"
         ],
+        "summary": "List all permissions in the system.",
         "operationId": "list_permissions",
         "responses": {
           "200": {
@@ -971,8 +988,10 @@
     "/admin/roles": {
       "get": {
         "tags": [
-          "crate::routes::admin::permissions"
+          "Admin",
+          "RBAC"
         ],
+        "summary": "List all roles.",
         "operationId": "list_roles",
         "responses": {
           "200": {
@@ -1020,8 +1039,10 @@
       },
       "post": {
         "tags": [
-          "crate::routes::admin::permissions"
+          "Admin",
+          "RBAC"
         ],
+        "summary": "Create a new role.",
         "operationId": "create_role",
         "requestBody": {
           "content": {
@@ -1088,8 +1109,10 @@
     "/admin/roles/{name}": {
       "delete": {
         "tags": [
-          "crate::routes::admin::permissions"
+          "Admin",
+          "RBAC"
         ],
+        "summary": "Delete a role by name.",
         "operationId": "delete_role",
         "parameters": [
           {
@@ -1159,8 +1182,10 @@
     "/admin/roles/{name}/permissions": {
       "get": {
         "tags": [
-          "crate::routes::admin::permissions"
+          "Admin",
+          "RBAC"
         ],
+        "summary": "List all permissions attached to a role.",
         "operationId": "list_role_permissions",
         "parameters": [
           {
@@ -1230,8 +1255,10 @@
     "/admin/roles/{name}/permissions/{perm}": {
       "put": {
         "tags": [
-          "crate::routes::admin::permissions"
+          "Admin",
+          "RBAC"
         ],
+        "summary": "Attach a permission to a role.",
         "operationId": "attach_role_permission",
         "parameters": [
           {
@@ -1297,8 +1324,10 @@
       },
       "delete": {
         "tags": [
-          "crate::routes::admin::permissions"
+          "Admin",
+          "RBAC"
         ],
+        "summary": "Detach a permission from a role.",
         "operationId": "detach_role_permission",
         "parameters": [
           {
@@ -1356,8 +1385,10 @@
     "/admin/slcb/import": {
       "post": {
         "tags": [
-          "crate::routes::admin::slcb"
+          "Admin",
+          "SLCB"
         ],
+        "summary": "Import Streamlabs Chatbot records into the database.",
         "operationId": "import",
         "requestBody": {
           "content": {
@@ -1417,8 +1448,10 @@
     "/admin/slcb/match": {
       "post": {
         "tags": [
-          "crate::routes::admin::slcb"
+          "Admin",
+          "SLCB"
         ],
+        "summary": "Match SLCB records to YouTube links in the database.",
         "operationId": "run_match",
         "responses": {
           "200": {
@@ -1465,8 +1498,10 @@
     "/admin/users": {
       "get": {
         "tags": [
-          "crate::routes::admin::users"
+          "Admin",
+          "Users"
         ],
+        "summary": "List users, optionally filtered by query string.",
         "operationId": "list_users",
         "parameters": [
           {
@@ -1543,8 +1578,10 @@
     "/admin/users/{id}": {
       "get": {
         "tags": [
-          "crate::routes::admin::users"
+          "Admin",
+          "Users"
         ],
+        "summary": "Get a single user by ID.",
         "operationId": "get_user",
         "parameters": [
           {
@@ -1610,8 +1647,10 @@
       },
       "patch": {
         "tags": [
-          "crate::routes::admin::users"
+          "Admin",
+          "Users"
         ],
+        "summary": "Update a user by ID. Only fields present in the request body will be updated.",
         "operationId": "patch_user",
         "parameters": [
           {
@@ -1689,8 +1728,11 @@
     "/admin/users/{id}/permissions": {
       "get": {
         "tags": [
-          "crate::routes::admin::users"
+          "Admin",
+          "Users",
+          "RBAC"
         ],
+        "summary": "Get a user's permissions by ID.",
         "operationId": "get_user_permissions",
         "parameters": [
           {
@@ -1758,8 +1800,11 @@
     "/admin/users/{id}/permissions/{perm}": {
       "put": {
         "tags": [
-          "crate::routes::admin::users"
+          "Admin",
+          "Users",
+          "RBAC"
         ],
+        "summary": "Grant a permission to a user by ID.",
         "operationId": "grant_user_permission",
         "parameters": [
           {
@@ -1826,8 +1871,11 @@
       },
       "delete": {
         "tags": [
-          "crate::routes::admin::users"
+          "Admin",
+          "Users",
+          "RBAC"
         ],
+        "summary": "Revoke a permission from a user by ID.",
         "operationId": "revoke_user_permission",
         "parameters": [
           {
@@ -1886,8 +1934,11 @@
     "/admin/users/{id}/role": {
       "put": {
         "tags": [
-          "crate::routes::admin::users"
+          "Admin",
+          "Users",
+          "RBAC"
         ],
+        "summary": "Set a user's role by ID.",
         "operationId": "set_user_role",
         "parameters": [
           {
@@ -1958,8 +2009,10 @@
     "/admin/users/{id}/slcb-link": {
       "post": {
         "tags": [
-          "crate::routes::admin::slcb"
+          "Admin",
+          "SLCB"
         ],
+        "summary": "Force-link a user to a SLCB username.",
         "operationId": "force_link",
         "parameters": [
           {
@@ -2055,7 +2108,8 @@
     "/auth/discord/login": {
       "get": {
         "tags": [
-          "crate::routes::auth"
+          "Auth",
+          "Discord"
         ],
         "summary": "Logs in a user via Discord",
         "description": "Exchanges the authorization code received from Discord (via the standard\nauthorization-code flow) for a Caliborn JWT.\n\nThe frontend redirects the user to the\n[Discord authorization URL](https://discord.com/developers/docs/topics/oauth2#authorization-code-flow);\nDiscord redirects back with `?code=...`; the frontend then calls this\nendpoint with that code as a query parameter.",
@@ -2117,7 +2171,8 @@
     "/bears/add": {
       "post": {
         "tags": [
-          "crate::routes::bears"
+          "Minigames",
+          "Bears"
         ],
         "summary": "Add a bear to Bear Town.",
         "description": "# Returns\n\nA 200 OK response containing the new bear count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred\n* `401 Unauthorized` - An authorization error occurred (e.g. invalid access token)",
@@ -2175,7 +2230,8 @@
     "/bears/count": {
       "get": {
         "tags": [
-          "crate::routes::bears"
+          "Minigames",
+          "Bears"
         ],
         "summary": "Get the current bear count.",
         "description": "# Returns\n\nA 200 OK response containing the current bear count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred",
@@ -2211,7 +2267,8 @@
     "/cans/add": {
       "post": {
         "tags": [
-          "crate::routes::cans"
+          "Minigames",
+          "Cans"
         ],
         "summary": "Add a can to Can Town.",
         "description": "# Returns\n\nA 200 OK response containing the new can count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred\n* `401 Unauthorized` - An authorization error occurred (e.g. invalid access token)",
@@ -2269,7 +2326,8 @@
     "/cans/count": {
       "get": {
         "tags": [
-          "crate::routes::cans"
+          "Minigames",
+          "Cans"
         ],
         "summary": "Get the current can count.",
         "description": "# Returns\n\nA 200 OK response containing the current can count.\n\n# Errors\n\n* `500 Internal Server Error` - An internal server error occurred",
@@ -2305,8 +2363,10 @@
     "/minigames/dice/roll": {
       "post": {
         "tags": [
-          "crate::routes::minigames"
+          "Minigames",
+          "Dice"
         ],
+        "summary": "Roll a dice for the authenticated user.",
         "operationId": "dice_roll",
         "responses": {
           "200": {
@@ -2373,8 +2433,10 @@
     "/minigames/pvp": {
       "post": {
         "tags": [
-          "crate::routes::minigames"
+          "Minigames",
+          "PvP"
         ],
+        "summary": "Challenge another user to a PvP duel.",
         "operationId": "pvp_challenge",
         "requestBody": {
           "content": {
@@ -2451,8 +2513,10 @@
     "/minigames/slots/spin": {
       "post": {
         "tags": [
-          "crate::routes::minigames"
+          "Minigames",
+          "Slots"
         ],
+        "summary": "Spin the slots machine with a specified bet amount for the authenticated user.",
         "operationId": "slots_spin",
         "requestBody": {
           "content": {
@@ -2529,8 +2593,11 @@
     "/playback/played": {
       "post": {
         "tags": [
-          "crate::routes::playback"
+          "Liquidsoap",
+          "Playback"
         ],
+        "summary": "Record that a song has started playing.",
+        "description": "This endpoint is only supposed to be called by Liquidsoap, and is authenticated via the\n`X-Liquidsoap-Token` header.",
         "operationId": "played",
         "requestBody": {
           "content": {
@@ -2583,14 +2650,20 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "liquidsoap_ingest": []
+          }
+        ]
       }
     },
     "/songs/current": {
       "get": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Get the song currently on air.",
         "operationId": "get_currently_playing",
         "responses": {
           "200": {
@@ -2629,8 +2702,9 @@
     "/songs/favourite": {
       "post": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Mark a song as a favourite for the user.",
         "operationId": "mark_song_as_favourite",
         "parameters": [
           {
@@ -2699,8 +2773,9 @@
       },
       "delete": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Unmark a song as a favourite for the user.",
         "operationId": "unmark_song_as_favourite",
         "parameters": [
           {
@@ -2771,8 +2846,9 @@
     "/songs/favourite/current": {
       "post": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Mark the song currently on air as a favourite for the user.",
         "operationId": "mark_currently_playing_song_as_favourite",
         "responses": {
           "200": {
@@ -2832,8 +2908,9 @@
     "/songs/favourites": {
       "get": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Search for songs in the library that are marked as favourites by the user.",
         "operationId": "search_favourite_songs",
         "parameters": [
           {
@@ -2918,7 +2995,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/OrderBy"
+              "type": "string",
+              "enum": [
+                "title",
+                "artist",
+                "album",
+                "duration",
+                "bitrate"
+              ]
             }
           },
           {
@@ -2926,7 +3010,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/OrderDirection"
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           },
           {
@@ -3005,8 +3093,9 @@
     "/songs/history": {
       "get": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Get the history of recently played songs.",
         "operationId": "get_song_history",
         "parameters": [
           {
@@ -3057,8 +3146,9 @@
     "/songs/queue": {
       "get": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Get the current song request queue.",
         "operationId": "get_request_queue",
         "responses": {
           "200": {
@@ -3087,8 +3177,9 @@
     "/songs/request": {
       "post": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Request a song to be queued for playback.",
         "operationId": "request_song",
         "parameters": [
           {
@@ -3175,8 +3266,9 @@
     "/songs/search": {
       "get": {
         "tags": [
-          "crate::routes::songs"
+          "Songs"
         ],
+        "summary": "Search for songs in the library.",
         "operationId": "search_song",
         "parameters": [
           {
@@ -3261,7 +3353,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/OrderBy"
+              "type": "string",
+              "enum": [
+                "title",
+                "artist",
+                "album",
+                "duration",
+                "bitrate"
+              ]
             }
           },
           {
@@ -3269,7 +3368,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/OrderDirection"
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           },
           {
@@ -3320,8 +3423,10 @@
     "/stream/playlist/reload": {
       "post": {
         "tags": [
-          "crate::routes::stream"
+          "Stream Management",
+          "Liquidsoap"
         ],
+        "summary": "Reload the stream playlist.",
         "operationId": "playlist_reload",
         "responses": {
           "200": {
@@ -3378,8 +3483,10 @@
     "/stream/queue/push": {
       "post": {
         "tags": [
-          "crate::routes::stream"
+          "Stream Management",
+          "Liquidsoap"
         ],
+        "summary": "Push a file onto the stream queue.",
         "operationId": "queue_push",
         "requestBody": {
           "content": {
@@ -3456,8 +3563,10 @@
     "/stream/raw": {
       "post": {
         "tags": [
-          "crate::routes::stream"
+          "Stream Management",
+          "Liquidsoap"
         ],
+        "summary": "Send a raw command to the stream.",
         "operationId": "raw",
         "requestBody": {
           "content": {
@@ -3534,8 +3643,10 @@
     "/stream/skip": {
       "post": {
         "tags": [
-          "crate::routes::stream"
+          "Stream Management",
+          "Liquidsoap"
         ],
+        "summary": "Skip the currently playing track in the stream.",
         "operationId": "skip",
         "responses": {
           "200": {
@@ -3592,8 +3703,10 @@
     "/stream/volume": {
       "post": {
         "tags": [
-          "crate::routes::stream"
+          "Stream Management",
+          "Liquidsoap"
         ],
+        "summary": "Set the volume of the stream.",
         "operationId": "volume",
         "requestBody": {
           "content": {
@@ -3670,8 +3783,9 @@
     "/user/me": {
       "get": {
         "tags": [
-          "crate::routes::user"
+          "Users"
         ],
+        "summary": "Get the authenticated user's information.",
         "operationId": "me",
         "responses": {
           "200": {
@@ -3726,8 +3840,10 @@
     "/user/me/pay": {
       "post": {
         "tags": [
-          "crate::routes::user"
+          "Economy",
+          "Users"
         ],
+        "summary": "Transfer Boonbucks from the authenticated user to another user.",
         "operationId": "pay",
         "requestBody": {
           "content": {
@@ -3794,8 +3910,9 @@
     "/user/me/profile": {
       "get": {
         "tags": [
-          "crate::routes::user"
+          "Users"
         ],
+        "summary": "Get the authenticated user's aggregated profile.",
         "operationId": "my_profile",
         "responses": {
           "200": {
@@ -3842,8 +3959,10 @@
     "/user/me/sync-linked-role": {
       "post": {
         "tags": [
-          "crate::routes::user"
+          "Discord",
+          "Users"
         ],
+        "summary": "Push the authenticated user's linked-role metadata to Discord.",
         "operationId": "sync_linked_role",
         "responses": {
           "204": {
@@ -3893,8 +4012,9 @@
     "/user/{id}/profile": {
       "get": {
         "tags": [
-          "crate::routes::user"
+          "Users"
         ],
+        "summary": "Get another user's aggregated profile by their user ID.",
         "operationId": "user_profile",
         "parameters": [
           {
@@ -3952,10 +4072,11 @@
     "/ws": {
       "get": {
         "tags": [
-          "crate::routes::ws"
+          "Realtime",
+          "WebSocket"
         ],
         "summary": "Subscribe to the realtime event stream.",
-        "description": "This is a WebSocket endpoint. OpenAPI cannot describe a WebSocket session —\n3.1 has no concept of one and 3.2 only added Server-Sent Events — so what is\ndocumented here is the **handshake**: the `GET` that upgrades, its\nquery-param auth, and the `101` response. Once upgraded, the server pushes\nJSON-encoded [`crate::realtime::Event`] values (`now_playing`,\n`queue_updated`), discriminated by their `type` field, and never reads from\nthe client except to answer pings.",
+        "description": "This is a WebSocket endpoint.",
         "operationId": "ws",
         "parameters": [
           {
@@ -5460,6 +5581,12 @@
       }
     },
     "securitySchemes": {
+      "liquidsoap_ingest": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-liquidsoap-token",
+        "description": "The Liquidsoap ingest token"
+      },
       "user_api_key": {
         "type": "http",
         "scheme": "bearer",
