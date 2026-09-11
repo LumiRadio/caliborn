@@ -26,7 +26,7 @@ use crate::{
         ("user_jwt" = []),
         ("user_api_key" = [])
     ),
-    tags = ["Minigames", "Slots"]
+    tags = ["Minigames"]
 )]
 #[axum::debug_handler]
 pub async fn slots_spin(
@@ -54,7 +54,7 @@ pub async fn slots_spin(
         ("user_jwt" = []),
         ("user_api_key" = [])
     ),
-    tags = ["Minigames", "Dice"]
+    tags = ["Minigames"]
 )]
 #[axum::debug_handler]
 pub async fn dice_roll(
@@ -82,7 +82,7 @@ pub async fn dice_roll(
         ("user_jwt" = []),
         ("user_api_key" = [])
     ),
-    tags = ["Minigames", "PvP"]
+    tags = ["Minigames"]
 )]
 #[axum::debug_handler]
 pub async fn pvp_challenge(

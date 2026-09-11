@@ -2363,8 +2363,7 @@
     "/minigames/dice/roll": {
       "post": {
         "tags": [
-          "Minigames",
-          "Dice"
+          "Minigames"
         ],
         "summary": "Roll a dice for the authenticated user.",
         "operationId": "dice_roll",
@@ -2433,8 +2432,7 @@
     "/minigames/pvp": {
       "post": {
         "tags": [
-          "Minigames",
-          "PvP"
+          "Minigames"
         ],
         "summary": "Challenge another user to a PvP duel.",
         "operationId": "pvp_challenge",
@@ -2513,8 +2511,7 @@
     "/minigames/slots/spin": {
       "post": {
         "tags": [
-          "Minigames",
-          "Slots"
+          "Minigames"
         ],
         "summary": "Spin the slots machine with a specified bet amount for the authenticated user.",
         "operationId": "slots_spin",
