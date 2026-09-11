@@ -53,7 +53,7 @@ async fn activity_credits_then_slots_debits_then_cooldown_blocks(#[future] scena
 
     // History row was written by the spin.
     let history = entities::minigame_history::Entity::find()
-        .all(&*env.conn)
+        .all(&env.conn)
         .await
         .unwrap();
     assert_eq!(history.len(), 1);

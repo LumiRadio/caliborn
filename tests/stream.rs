@@ -26,13 +26,13 @@ async fn record_played_inserts_history_increments_count_and_broadcasts() {
         .unwrap();
 
     let history_count = entities::played_songs::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(history_count, 1);
 
     let song = entities::songs::Entity::find_by_id("/music/example.flac".to_string())
-        .one(&*env.conn)
+        .one(&env.conn)
         .await
         .unwrap()
         .unwrap();

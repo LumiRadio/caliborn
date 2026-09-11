@@ -28,7 +28,7 @@ async fn spin_succeeds_and_records_history(#[future] scenario: ScenarioEnv) {
     assert_eq!(result.new_balance, 100 + net);
 
     let history_count = entities::minigame_history::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(history_count, 1);

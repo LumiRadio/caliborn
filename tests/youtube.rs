@@ -24,7 +24,7 @@ async fn upsert_inserts_when_absent(#[future] scenario: ScenarioEnv) {
         .unwrap();
 
     let count = entities::connected_youtube_accounts::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(count, 1);
@@ -46,7 +46,7 @@ async fn upsert_is_idempotent(#[future] scenario: ScenarioEnv) {
         .unwrap();
 
     let count = entities::connected_youtube_accounts::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(count, 1);
@@ -72,14 +72,14 @@ async fn upsert_refreshes_display_name(#[future] scenario: ScenarioEnv) {
     let model = entities::connected_youtube_accounts::Entity::find()
         .filter(entities::connected_youtube_accounts::Column::UserId.eq(1_i64))
         .filter(entities::connected_youtube_accounts::Column::YoutubeChannelId.eq("UCxxxx"))
-        .one(&*env.conn)
+        .one(&env.conn)
         .await
         .unwrap()
         .unwrap();
     assert_eq!(model.youtube_channel_name, "New Name");
 
     let count = entities::connected_youtube_accounts::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(count, 1);
@@ -101,7 +101,7 @@ async fn upsert_keeps_other_channels(#[future] scenario: ScenarioEnv) {
         .unwrap();
 
     let count = entities::connected_youtube_accounts::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(count, 2);

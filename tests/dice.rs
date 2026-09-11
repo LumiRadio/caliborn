@@ -28,7 +28,7 @@ async fn roll_succeeds_and_records_history(#[future] scenario: ScenarioEnv) {
     assert_eq!(result.won, result.payout > 0);
 
     let history_count = entities::minigame_history::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(history_count, 1);
@@ -79,7 +79,7 @@ async fn radio_state_target_unchanged_when_no_secret_match(#[future] scenario: S
         dice_roll_target: ActiveValue::set(999),
         ..Default::default()
     })
-    .exec(&*env.conn)
+    .exec(&env.conn)
     .await
     .unwrap();
 
@@ -95,7 +95,7 @@ async fn radio_state_target_unchanged_when_no_secret_match(#[future] scenario: S
     assert_eq!(result.server_roll_after, 999);
 
     let radio = entities::radio_state::Entity::find_by_id(1_i16)
-        .one(&*env.conn)
+        .one(&env.conn)
         .await
         .unwrap()
         .unwrap();

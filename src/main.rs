@@ -397,7 +397,7 @@ async fn import_slcb(config: Config, path: PathBuf, dry_run: bool) -> Result<(),
     let records = slcb::parse_streamlabs(&path)
         .map_err(|e| ApplicationError::LinkedRoles(format!("import-slcb parse error: {e}")))?;
     let db = sea_orm::Database::connect(&config.database_url).await?;
-    let conn: caliborn::repositories::AlwaysCloneableConnection = db.into();
+    let conn: sea_orm::DatabaseConnection = db.into();
     let summary = slcb::import_records(&conn, &records, dry_run)
         .await
         .map_err(|e| ApplicationError::LinkedRoles(format!("import-slcb failed: {e}")))?;
@@ -419,7 +419,7 @@ async fn match_slcb(config: Config) -> Result<(), ApplicationError> {
     use caliborn::services::slcb;
 
     let db = sea_orm::Database::connect(&config.database_url).await?;
-    let conn: caliborn::repositories::AlwaysCloneableConnection = db.into();
+    let conn: sea_orm::DatabaseConnection = db.into();
     let summary = slcb::match_youtube_links(&conn)
         .await
         .map_err(|e| ApplicationError::LinkedRoles(format!("match-slcb failed: {e}")))?;
@@ -708,10 +708,10 @@ async fn dispatch(cli: Cli) -> Result<(), ApplicationError> {
 }
 
 async fn admin_cmd(config: Config, op: AdminOp) -> Result<(), ApplicationError> {
-    use caliborn::repositories::AlwaysCloneableConnection;
+    use sea_orm::DatabaseConnection;
 
     let db = sea_orm::Database::connect(&config.database_url).await?;
-    let conn: AlwaysCloneableConnection = db.into();
+    let conn: DatabaseConnection = db.into();
 
     match op {
         AdminOp::Auth {
@@ -748,7 +748,7 @@ fn admin_mint_token(
 }
 
 async fn admin_users(
-    db: &caliborn::repositories::AlwaysCloneableConnection,
+    db: &sea_orm::DatabaseConnection,
     op: AdminUsersOp,
 ) -> Result<(), ApplicationError> {
     use caliborn::entities;
@@ -764,11 +764,7 @@ async fn admin_users(
                     q = q.filter(entities::users::Column::Username.like(format!("%{}%", s)));
                 }
             }
-            let rows = q
-                .limit(limit)
-                .all(&**db)
-                .await
-                .map_err(sea_orm::DbErr::from)?;
+            let rows = q.limit(limit).all(db).await.map_err(sea_orm::DbErr::from)?;
             for u in rows {
                 println!(
                     "{}\t{}\trole={}\tbb={}\twatched={}\tmigrated={}",
@@ -783,7 +779,7 @@ async fn admin_users(
         }
         AdminUsersOp::Show { user_id } => {
             let u = entities::users::Entity::find_by_id(user_id)
-                .one(&**db)
+                .one(db)
                 .await
                 .map_err(sea_orm::DbErr::from)?;
             match u {
@@ -798,7 +794,7 @@ async fn admin_users(
                     sea_orm::sea_query::Expr::value(amount),
                 )
                 .filter(entities::users::Column::Id.eq(user_id))
-                .exec(&**db)
+                .exec(db)
                 .await?;
             println!("updated {} row(s)", res.rows_affected);
         }
@@ -809,7 +805,7 @@ async fn admin_users(
                     sea_orm::sea_query::Expr::value(seconds),
                 )
                 .filter(entities::users::Column::Id.eq(user_id))
-                .exec(&**db)
+                .exec(db)
                 .await?;
             println!("updated {} row(s)", res.rows_affected);
         }
@@ -831,7 +827,7 @@ async fn admin_users(
 }
 
 async fn admin_perms(
-    db: &caliborn::repositories::AlwaysCloneableConnection,
+    db: &sea_orm::DatabaseConnection,
     op: AdminPermsOp,
 ) -> Result<(), ApplicationError> {
     let service = caliborn::services::permissions::PermissionService::new(db);
@@ -919,7 +915,7 @@ async fn admin_perms(
 }
 
 async fn admin_cooldowns(
-    db: &caliborn::repositories::AlwaysCloneableConnection,
+    db: &sea_orm::DatabaseConnection,
     op: AdminCooldownsOp,
 ) -> Result<(), ApplicationError> {
     use caliborn::entities;
@@ -941,7 +937,7 @@ async fn admin_cooldowns(
             if let Some(k) = key.as_deref() {
                 q = q.filter(entities::cooldown::Column::Key.eq(k));
             }
-            for c in q.all(&**db).await? {
+            for c in q.all(db).await? {
                 println!(
                     "{}\tscope={}\tuser={:?}\tkey={}\texpires_at={}",
                     c.id, c.scope, c.user_id, c.key, c.expires_at
@@ -950,7 +946,7 @@ async fn admin_cooldowns(
         }
         AdminCooldownsOp::Clear { id } => {
             entities::cooldown::Entity::delete_by_id(id)
-                .exec(&**db)
+                .exec(db)
                 .await?;
             println!("cooldown {id} deleted");
         }
@@ -973,7 +969,7 @@ async fn admin_cooldowns(
                 Some(uid) => del.filter(entities::cooldown::Column::UserId.eq(uid)),
                 None => del.filter(entities::cooldown::Column::UserId.is_null()),
             };
-            del.exec(&**db).await?;
+            del.exec(db).await?;
 
             use sea_orm::ActiveModelTrait;
             let m = entities::cooldown::ActiveModel {
@@ -983,7 +979,7 @@ async fn admin_cooldowns(
                 expires_at: Set(parsed),
                 ..Default::default()
             }
-            .insert(&**db)
+            .insert(db)
             .await?;
             println!("cooldown upserted id={}", m.id);
         }
@@ -992,7 +988,7 @@ async fn admin_cooldowns(
 }
 
 async fn admin_slcb(
-    db: &caliborn::repositories::AlwaysCloneableConnection,
+    db: &sea_orm::DatabaseConnection,
     op: AdminSlcbOp,
 ) -> Result<(), ApplicationError> {
     use caliborn::services::slcb;

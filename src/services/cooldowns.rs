@@ -7,7 +7,7 @@ use crate::{
     dtos::error::{PublicError, ToPublicError},
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository,
+        BaseRepository, DatabaseConnection,
         cooldowns::{CooldownFilter, CooldownRepositoryExt, CooldownScope, CreateCooldownDto},
     },
 };
@@ -36,7 +36,7 @@ pub struct CooldownService {
 }
 
 impl CooldownService {
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
+    pub fn new(db: &DatabaseConnection) -> Self {
         Self {
             cooldown_repository: BaseRepository::new(db),
         }

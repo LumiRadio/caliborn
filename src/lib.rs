@@ -15,7 +15,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     liquidsoap::LiquidsoapClient, openapi::ApiDoc, realtime::Broadcaster,
-    repositories::AlwaysCloneableConnection, services::secrets::TokenSealer,
+    repositories::DatabaseConnection, services::secrets::TokenSealer,
 };
 pub use crate::{
     liquidsoap::{LiquidsoapClientImpl, LiquidsoapError},
@@ -39,7 +39,6 @@ pub mod realtime;
 pub mod repositories;
 /// API routes for the application.
 pub mod routes;
-pub mod sea_orm_utils;
 /// Services for business logic.
 pub mod services;
 /// Vectorizer for full-text search.
@@ -108,7 +107,7 @@ pub fn make_app(
     jwt_secret: Hmac<Sha256>,
     hmac_secret: Hmac<Sha256>,
     oauth_client: DiscordOAuthClient,
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     discord_application_id: String,
     linked_roles_platform_name: String,

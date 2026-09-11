@@ -11,13 +11,14 @@
 //! Plan note: `slcb_*` tables are kept permanently — late-joining Discord
 //! users may match SLCB rows imported years prior.
 
+use sea_orm::ExprTrait;
 use std::path::Path;
 
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
 use utoipa::ToSchema;
 
-use crate::{entities, repositories::AlwaysCloneableConnection};
+use crate::{entities, repositories::DatabaseConnection};
 
 #[derive(thiserror::Error, Debug)]
 pub enum SlcbError {
@@ -92,7 +93,7 @@ pub fn parse_streamlabs<P: AsRef<Path>>(path: P) -> Result<Vec<StreamlabsRecord>
 /// Upsert the supplied records into `slcb_currency`. Match key is
 /// `(username, user_id)`; same key + new values updates the row in place.
 pub async fn import_records(
-    db: &AlwaysCloneableConnection,
+    db: &DatabaseConnection,
     records: &[StreamlabsRecord],
     dry_run: bool,
 ) -> Result<ImportSummary, SlcbError> {
@@ -105,7 +106,7 @@ pub async fn import_records(
             Some(uid) => q.filter(entities::slcb_currency::Column::UserId.eq(uid.as_str())),
             None => q.filter(entities::slcb_currency::Column::UserId.is_null()),
         };
-        let existing = q.one(&**db).await?;
+        let existing = q.one(db).await?;
 
         if dry_run {
             if existing.is_some() {
@@ -121,7 +122,7 @@ pub async fn import_records(
                 let mut active: entities::slcb_currency::ActiveModel = row.into();
                 active.points = Set(record.points);
                 active.hours = Set(record.hours);
-                active.update(&**db).await?;
+                active.update(db).await?;
                 summary.updated += 1;
             }
             None => {
@@ -132,7 +133,7 @@ pub async fn import_records(
                     hours: ActiveValue::set(record.hours),
                     ..Default::default()
                 }
-                .insert(&**db)
+                .insert(db)
                 .await?;
                 summary.inserted += 1;
             }
@@ -150,14 +151,12 @@ pub async fn import_records(
 /// links Discord+YouTube, without requiring the operator to run
 /// `caliborn match-slcb` manually.
 pub async fn match_for_user(
-    db: &AlwaysCloneableConnection,
+    db: &DatabaseConnection,
     user_id: i64,
 ) -> Result<MatchSummary, SlcbError> {
     let mut summary = MatchSummary::default();
 
-    let user = entities::users::Entity::find_by_id(user_id)
-        .one(&**db)
-        .await?;
+    let user = entities::users::Entity::find_by_id(user_id).one(db).await?;
     let Some(user) = user else {
         summary.no_slcb_row += 1;
         return Ok(summary);
@@ -169,7 +168,7 @@ pub async fn match_for_user(
 
     let links = entities::connected_youtube_accounts::Entity::find()
         .filter(entities::connected_youtube_accounts::Column::UserId.eq(user_id))
-        .all(&**db)
+        .all(db)
         .await?;
 
     for link in links {
@@ -177,7 +176,7 @@ pub async fn match_for_user(
 
         let slcb = entities::slcb_currency::Entity::find()
             .filter(entities::slcb_currency::Column::UserId.eq(link.youtube_channel_id.as_str()))
-            .one(&**db)
+            .one(db)
             .await?;
         let Some(slcb) = slcb else {
             summary.no_slcb_row += 1;
@@ -193,7 +192,7 @@ pub async fn match_for_user(
             migrated: Set(true),
             ..Default::default()
         })
-        .exec(&**db)
+        .exec(db)
         .await?;
 
         summary.matched += 1;
@@ -232,13 +231,13 @@ pub struct ForcedLinkSummary {
 /// always applied additively — caller should refuse `force` after careful
 /// review.
 pub async fn link_user_to_slcb_username(
-    db: &AlwaysCloneableConnection,
+    db: &DatabaseConnection,
     user_id: i64,
     slcb_username: &str,
     force: bool,
 ) -> Result<ForcedLinkSummary, SlcbError> {
     let user = entities::users::Entity::find_by_id(user_id)
-        .one(&**db)
+        .one(db)
         .await?
         .ok_or(SlcbError::UserNotFound(user_id))?;
 
@@ -253,7 +252,7 @@ pub async fn link_user_to_slcb_username(
             ))
             .eq(slcb_username.to_lowercase()),
         )
-        .one(&**db)
+        .one(db)
         .await?
         .ok_or_else(|| SlcbError::SlcbUsernameNotFound(slcb_username.to_string()))?;
 
@@ -267,7 +266,7 @@ pub async fn link_user_to_slcb_username(
         migrated: Set(true),
         ..Default::default()
     })
-    .exec(&**db)
+    .exec(db)
     .await?;
 
     tracing::info!(
@@ -291,20 +290,18 @@ pub async fn link_user_to_slcb_username(
 
 /// Walk all linked YouTube channels and import any matching SLCB row that
 /// hasn't already been imported.
-pub async fn match_youtube_links(
-    db: &AlwaysCloneableConnection,
-) -> Result<MatchSummary, SlcbError> {
+pub async fn match_youtube_links(db: &DatabaseConnection) -> Result<MatchSummary, SlcbError> {
     let mut summary = MatchSummary::default();
 
     let links = entities::connected_youtube_accounts::Entity::find()
-        .all(&**db)
+        .all(db)
         .await?;
 
     for link in links {
         summary.considered += 1;
 
         let user = entities::users::Entity::find_by_id(link.user_id)
-            .one(&**db)
+            .one(db)
             .await?;
         let Some(user) = user else {
             summary.no_slcb_row += 1;
@@ -317,7 +314,7 @@ pub async fn match_youtube_links(
 
         let slcb = entities::slcb_currency::Entity::find()
             .filter(entities::slcb_currency::Column::UserId.eq(link.youtube_channel_id.as_str()))
-            .one(&**db)
+            .one(db)
             .await?;
         let Some(slcb) = slcb else {
             summary.no_slcb_row += 1;
@@ -333,7 +330,7 @@ pub async fn match_youtube_links(
             migrated: Set(true),
             ..Default::default()
         })
-        .exec(&**db)
+        .exec(db)
         .await?;
 
         summary.matched += 1;

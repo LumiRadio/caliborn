@@ -63,7 +63,7 @@ async fn profile_includes_can_count(#[future] scenario: ScenarioEnv) {
             legit: ActiveValue::set(legit),
             ..Default::default()
         })
-        .exec(&*env.conn)
+        .exec(&env.conn)
         .await
         .unwrap();
     }

@@ -14,7 +14,7 @@ use crate::{
     dtos::error::{PublicError, ToPublicError},
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository,
+        BaseRepository, DatabaseConnection,
         users::{BalanceUpdateError, UserRepositoryExt},
     },
     services::{
@@ -218,7 +218,7 @@ impl ToPublicError for DiceServiceError {
 }
 
 pub struct DiceService {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     user_repo: BaseRepository<entities::users::Entity>,
     history_repo: BaseRepository<entities::minigame_history::Entity>,
     cooldown_service: Arc<CooldownService>,
@@ -227,7 +227,7 @@ pub struct DiceService {
 
 impl DiceService {
     pub fn new(
-        db: &AlwaysCloneableConnection,
+        db: &DatabaseConnection,
         cooldown_service: Arc<CooldownService>,
         user_service: Arc<UserService>,
     ) -> Self {
@@ -255,7 +255,7 @@ impl DiceService {
         }
 
         let radio = entities::radio_state::Entity::find_by_id(1_i16)
-            .one(&*self.db)
+            .one(&self.db)
             .await?
             .ok_or(DiceServiceError::RadioStateMissing)?;
         let server_roll_before = radio.dice_roll_target;
@@ -286,7 +286,7 @@ impl DiceService {
                 updated_at: Set(chrono::Utc::now().naive_utc()),
                 ..Default::default()
             })
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
             (next, mode as u8)
         } else {

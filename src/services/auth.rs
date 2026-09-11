@@ -24,7 +24,7 @@ use crate::{
     },
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository, RepositoryError,
+        BaseRepository, DatabaseConnection, RepositoryError,
         users::{CreateUserDto, UserRepositoryExt},
     },
     services::{
@@ -135,12 +135,12 @@ pub struct AuthService {
     key_generator: PakControllerOsSha256,
     linked_roles: std::sync::Arc<LinkedRolesService>,
     token_store: std::sync::Arc<TokenStore>,
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
 }
 
 impl AuthService {
     pub fn new(
-        db: &AlwaysCloneableConnection,
+        db: &DatabaseConnection,
         oauth_client: DiscordOAuthClient,
         jwt_secret: Hmac<Sha256>,
         hmac_secret: Hmac<Sha256>,
@@ -310,7 +310,7 @@ impl AuthService {
         use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
         let user = entities::users::Entity::find_by_id(user_id)
-            .one(&*self.db)
+            .one(&self.db)
             .await
             .map_err(|e| AuthServiceError::OtherOAuthError(e.to_string()))?
             .ok_or(AuthServiceError::OtherOAuthError(
@@ -318,7 +318,7 @@ impl AuthService {
             ))?;
         let can_count = entities::cans::Entity::find()
             .filter(entities::cans::Column::AddedBy.eq(user_id))
-            .count(&*self.db)
+            .count(&self.db)
             .await
             .map_err(|e| AuthServiceError::OtherOAuthError(e.to_string()))?;
 

@@ -3,7 +3,7 @@ use sea_orm::{EntityTrait, IntoActiveModel, PrimaryKeyTrait};
 use crate::{
     RepositoryError,
     dtos::page::Page,
-    repositories::{AlwaysCloneableConnection, ApplyQueryFilter, ApplyUpdates, BaseRepository},
+    repositories::{ApplyQueryFilter, ApplyUpdates, BaseRepository, DatabaseConnection},
 };
 
 pub mod error;
@@ -18,11 +18,11 @@ pub enum AdminCrudServiceError {
 }
 
 pub struct AdminCrudService {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
 }
 
 impl AdminCrudService {
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
+    pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
     }
 

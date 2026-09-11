@@ -28,7 +28,7 @@ serenity = "0.12.5"
 utoipa = { version = "5.5.0", features = ["axum_extras", "chrono"] }
 axum-macros = "0.5.1"
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
-sea-orm = { version = "1.1", features = [
+sea-orm = { version = "2.0", features = [
     "sqlx-postgres",
     "runtime-tokio-rustls",
     "macros",
@@ -36,7 +36,6 @@ sea-orm = { version = "1.1", features = [
     "with-rust_decimal",
 ] }
 migration = { path = "./migration" }
-sea-query = "0.32"
 async-trait = "0.1.92"
 rand = "0.10"
 prefixed-api-key = { version = "0.3.0", features = ["all"] }
@@ -64,6 +63,6 @@ futures-util = "0.3"
 [dev-dependencies]
 mockall = "0.13.1"
 rstest = "0.25.0"
-sea-orm = { version = "1.1", features = ["mock"] }
+sea-orm = { version = "2.0", features = ["mock"] }
 testcontainers = "0.24.0"
 testcontainers-modules = { version = "0.12.1", features = ["postgres"] }

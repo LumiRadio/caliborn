@@ -1,5 +1,6 @@
 //! Outbound Liquidsoap control + inbound `/played` ingest.
 
+use sea_orm::ExprTrait;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
@@ -13,7 +14,7 @@ use crate::{
     entities,
     liquidsoap::{LiquidsoapClient, LiquidsoapError},
     realtime::{Broadcaster, Event},
-    repositories::AlwaysCloneableConnection,
+    repositories::DatabaseConnection,
 };
 
 /// Liquidsoap command names. Centralized so they can be retuned without
@@ -74,7 +75,7 @@ pub struct LiquidsoapResponse {
 }
 
 pub struct StreamService {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     broadcaster: Broadcaster,
     playlist_source: String,
@@ -82,7 +83,7 @@ pub struct StreamService {
 
 impl StreamService {
     pub fn new(
-        db: &AlwaysCloneableConnection,
+        db: &DatabaseConnection,
         liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
         broadcaster: Broadcaster,
         playlist_source: String,
@@ -160,7 +161,7 @@ impl StreamService {
             played_at: ActiveValue::set(played_at.naive_utc()),
             ..Default::default()
         })
-        .exec(&*self.db)
+        .exec(&self.db)
         .await?;
 
         entities::songs::Entity::update_many()
@@ -169,7 +170,7 @@ impl StreamService {
                 Expr::col(entities::songs::Column::Played).add(1),
             )
             .filter(entities::songs::Column::FilePath.eq(file_path))
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
 
         if insert.last_insert_id > 0 {

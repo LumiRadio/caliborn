@@ -35,7 +35,7 @@ async fn request_song_pushes_to_liquidsoap_and_records_request() {
 
     // Cross-service: SongService inserted a song_requests row for this user.
     let reqs = entities::song_requests::Entity::find()
-        .all(&*env.conn)
+        .all(&env.conn)
         .await
         .unwrap();
     assert_eq!(reqs.len(), 1);
@@ -93,7 +93,7 @@ async fn request_song_http_pushes_and_persists() {
     assert_eq!(body["id"], "abcd1234");
 
     let reqs = entities::song_requests::Entity::find()
-        .all(&*env.conn)
+        .all(&env.conn)
         .await
         .unwrap();
     assert_eq!(reqs.len(), 1);

@@ -7,7 +7,7 @@ use crate::{
     dtos::error::{PublicError, ToPublicError},
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository, RepositoryError,
+        BaseRepository, DatabaseConnection, RepositoryError,
         users::{TransferError, UserRepositoryExt},
     },
     services::users::{UserService, UserServiceError},
@@ -84,7 +84,7 @@ pub struct EconomyService {
 }
 
 impl EconomyService {
-    pub fn new(db: &AlwaysCloneableConnection, registry: &ServiceRegistry) -> Self {
+    pub fn new(db: &DatabaseConnection, registry: &ServiceRegistry) -> Self {
         Self {
             user_repo: BaseRepository::new(db),
             user_service: registry.user_service(),

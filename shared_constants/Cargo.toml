@@ -5,4 +5,4 @@ edition = "2024"
 
 [dependencies]
 once_cell = "1.21"
-sea-orm = "1.1"
+sea-orm = "2.0"

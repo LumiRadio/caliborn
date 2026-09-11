@@ -1,11 +1,11 @@
 use std::{collections::HashMap, str::FromStr};
 
-use sea_orm::{EntityTrait, IntoActiveModel, PrimaryKeyTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, IntoActiveModel, PrimaryKeyTrait};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     repositories::{
-        AlwaysCloneableConnection, ApplyUpdates, NoDto,
+        ApplyUpdates, NoDto,
         cans::{CreateCanDto, UpdateCanDto},
         connected_youtube_accounts::{
             CreateConnectedYoutubeAccountDto, UpdateConnectedYoutubeAccountDto,
@@ -31,12 +31,12 @@ use crate::{
 };
 
 pub struct AdminRegistry {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     resources: HashMap<String, Box<dyn AdminResource>>,
 }
 
 impl AdminRegistry {
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
+    pub fn new(db: &DatabaseConnection) -> Self {
         Self {
             db: db.clone(),
             resources: HashMap::new(),
@@ -76,7 +76,7 @@ impl AdminRegistry {
     }
 }
 
-pub fn build_registry(db: &AlwaysCloneableConnection) -> AdminRegistry {
+pub fn build_registry(db: &DatabaseConnection) -> AdminRegistry {
     use crate::entities::*;
     AdminRegistry::new(db)
         .register::<users::Entity, CreateUserDto, UpdateUserDto>("users")

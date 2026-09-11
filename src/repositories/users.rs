@@ -1,3 +1,4 @@
+use sea_orm::ExprTrait;
 use sea_orm::{ActiveValue, QueryFilter, TransactionTrait, prelude::*, sea_query::Expr};
 
 use crate::{

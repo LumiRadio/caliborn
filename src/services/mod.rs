@@ -11,7 +11,7 @@ use crate::{
     DiscordOAuthClient,
     liquidsoap::LiquidsoapClient,
     realtime::Broadcaster,
-    repositories::AlwaysCloneableConnection,
+    repositories::DatabaseConnection,
     services::{
         admin::{AdminCrudService, registry::AdminRegistry},
         auth::AuthService,
@@ -110,7 +110,7 @@ pub struct ServiceRegistry {
     hmac_secret: Hmac<Sha256>,
     oauth_client: DiscordOAuthClient,
     liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     broadcaster: Broadcaster,
     discord_application_id: String,
     linked_roles_platform_name: String,
@@ -135,7 +135,7 @@ pub struct ServiceRegistry {
 
 impl ServiceRegistry {
     pub fn new(
-        db: AlwaysCloneableConnection,
+        db: DatabaseConnection,
         jwt_secret: Hmac<Sha256>,
         hmac_secret: Hmac<Sha256>,
         oauth_client: DiscordOAuthClient,
@@ -177,7 +177,7 @@ impl ServiceRegistry {
         &self.broadcaster
     }
 
-    pub fn db_handle(&self) -> AlwaysCloneableConnection {
+    pub fn db_handle(&self) -> DatabaseConnection {
         self.db.clone()
     }
 

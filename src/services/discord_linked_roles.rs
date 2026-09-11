@@ -22,7 +22,7 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Set};
 use serde::{Deserialize, Serialize};
 
-use crate::{entities, repositories::AlwaysCloneableConnection};
+use crate::{entities, repositories::DatabaseConnection};
 
 const METADATA_TYPE_INTEGER_GTE: u8 = 2;
 
@@ -90,7 +90,7 @@ pub struct LinkedRolesService {
     http_client: reqwest::Client,
     application_id: String,
     platform_name: String,
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
 }
 
 impl LinkedRolesService {
@@ -98,7 +98,7 @@ impl LinkedRolesService {
         http_client: reqwest::Client,
         application_id: String,
         platform_name: String,
-        db: AlwaysCloneableConnection,
+        db: DatabaseConnection,
     ) -> Self {
         Self {
             http_client,
@@ -172,7 +172,7 @@ impl LinkedRolesService {
         // last pushed. Upsert by user_id PK.
         let now = chrono::Utc::now().naive_utc();
         let existing = entities::discord_role_connections::Entity::find_by_id(user_id)
-            .one(&*self.db)
+            .one(&self.db)
             .await?;
         if existing.is_some() {
             entities::discord_role_connections::Entity::update(
@@ -184,7 +184,7 @@ impl LinkedRolesService {
                     boonbucks_snapshot: Set(Some(metadata.boonbucks)),
                 },
             )
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
         } else {
             entities::discord_role_connections::ActiveModel {
@@ -194,7 +194,7 @@ impl LinkedRolesService {
                 can_count_snapshot: Set(Some(metadata.can_count)),
                 boonbucks_snapshot: Set(Some(metadata.boonbucks)),
             }
-            .insert(&*self.db)
+            .insert(&self.db)
             .await?;
         }
         Ok(())
@@ -203,18 +203,18 @@ impl LinkedRolesService {
 
 /// Build a fresh [`UserMetadata`] snapshot from the database for `user_id`.
 pub async fn build_metadata(
-    db: &AlwaysCloneableConnection,
+    db: &DatabaseConnection,
     user_id: i64,
 ) -> Result<UserMetadata, sea_orm::DbErr> {
     use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
     let user = entities::users::Entity::find_by_id(user_id)
-        .one(&**db)
+        .one(db)
         .await?
         .ok_or(sea_orm::DbErr::RecordNotFound(format!("users[{user_id}]")))?;
     let can_count = entities::cans::Entity::find()
         .filter(entities::cans::Column::AddedBy.eq(user_id))
-        .count(&**db)
+        .count(db)
         .await?;
     Ok(UserMetadata {
         listening_hours: (user.watched_time / 3600) as i32,
@@ -226,12 +226,12 @@ pub async fn build_metadata(
 /// Returns true if `user_id`'s linked-role snapshot is older than `min_age`
 /// or has never been pushed. Used by `/played` to debounce re-pushes.
 pub async fn should_push_after(
-    db: &AlwaysCloneableConnection,
+    db: &DatabaseConnection,
     user_id: i64,
     min_age: chrono::Duration,
 ) -> Result<bool, sea_orm::DbErr> {
     let row = entities::discord_role_connections::Entity::find_by_id(user_id)
-        .one(&**db)
+        .one(db)
         .await?;
     Ok(match row.and_then(|r| r.last_pushed_at) {
         None => true,

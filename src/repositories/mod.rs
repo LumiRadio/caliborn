@@ -1,8 +1,11 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
+/// Re-exported for convenience; repositories and services are constructed from
+/// a `DatabaseConnection`, which is cheap to clone.
+pub use sea_orm::DatabaseConnection;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DeleteMany, EntityTrait,
-    IntoActiveModel, PaginatorTrait, PrimaryKeyTrait, Select,
+    ActiveModelTrait, DeleteMany, EntityTrait, IntoActiveModel, PaginatorTrait, PrimaryKeyTrait,
+    Select,
 };
 use serde::Deserialize;
 
@@ -24,68 +27,6 @@ pub mod tags;
 pub mod users;
 
 pub type DynError = Box<dyn std::error::Error + Send + Sync + 'static>;
-
-pub struct AlwaysCloneableConnection(Arc<DatabaseConnection>);
-
-impl Clone for AlwaysCloneableConnection {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl std::ops::Deref for AlwaysCloneableConnection {
-    type Target = DatabaseConnection;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<DatabaseConnection> for AlwaysCloneableConnection {
-    fn from(value: DatabaseConnection) -> Self {
-        Self(Arc::new(value))
-    }
-}
-
-#[async_trait::async_trait]
-impl ConnectionTrait for AlwaysCloneableConnection {
-    fn get_database_backend(&self) -> sea_orm::DbBackend {
-        self.0.get_database_backend()
-    }
-
-    async fn execute(
-        &self,
-        stmt: sea_orm::Statement,
-    ) -> Result<sea_orm::ExecResult, sea_orm::DbErr> {
-        self.0.execute(stmt).await
-    }
-
-    async fn execute_unprepared(&self, sql: &str) -> Result<sea_orm::ExecResult, sea_orm::DbErr> {
-        self.0.execute_unprepared(sql).await
-    }
-
-    async fn query_one(
-        &self,
-        stmt: sea_orm::Statement,
-    ) -> Result<Option<sea_orm::QueryResult>, sea_orm::DbErr> {
-        self.0.query_one(stmt).await
-    }
-
-    async fn query_all(
-        &self,
-        stmt: sea_orm::Statement,
-    ) -> Result<Vec<sea_orm::QueryResult>, sea_orm::DbErr> {
-        self.0.query_all(stmt).await
-    }
-
-    fn is_mock_connection(&self) -> bool {
-        self.0.is_mock_connection()
-    }
-
-    fn support_returning(&self) -> bool {
-        self.0.support_returning()
-    }
-}
 
 /// An enum representing possible errors that can occur when interacting with a repository.
 #[derive(thiserror::Error, Debug)]
@@ -152,7 +93,7 @@ impl<T> ApplyUpdates<T> for NoDto {
 }
 
 pub struct BaseRepository<E> {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     _phantom: PhantomData<E>,
 }
 
@@ -162,7 +103,7 @@ where
     E::Model: IntoActiveModel<E::ActiveModel> + Send + Sync,
     E::ActiveModel: Send,
 {
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
+    pub fn new(db: &DatabaseConnection) -> Self {
         Self {
             db: db.clone(),
             _phantom: PhantomData,
@@ -171,7 +112,7 @@ where
 
     /// Cheap clone of the underlying connection handle, for callers that
     /// need to run raw queries the repository methods don't cover.
-    pub fn db_handle(&self) -> AlwaysCloneableConnection {
+    pub fn db_handle(&self) -> DatabaseConnection {
         self.db.clone()
     }
 

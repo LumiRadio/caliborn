@@ -8,7 +8,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Set};
 
 use crate::{
     DiscordOAuthClient, RepositoryError, entities,
-    repositories::AlwaysCloneableConnection,
+    repositories::DatabaseConnection,
     services::secrets::{SealerError, TokenSealer},
 };
 
@@ -38,7 +38,7 @@ pub struct StoredTokens {
 
 #[derive(Clone)]
 pub struct TokenStore {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     sealer: Arc<TokenSealer>,
     oauth_client: DiscordOAuthClient,
     http_client: reqwest::Client,
@@ -46,7 +46,7 @@ pub struct TokenStore {
 
 impl TokenStore {
     pub fn new(
-        db: AlwaysCloneableConnection,
+        db: DatabaseConnection,
         sealer: Arc<TokenSealer>,
         oauth_client: DiscordOAuthClient,
         http_client: reqwest::Client,
@@ -74,7 +74,7 @@ impl TokenStore {
         let now = Utc::now().naive_utc();
 
         let existing = entities::discord_oauth_tokens::Entity::find_by_id(user_id)
-            .one(&*self.db)
+            .one(&self.db)
             .await?;
         if existing.is_some() {
             entities::discord_oauth_tokens::Entity::update(
@@ -89,7 +89,7 @@ impl TokenStore {
                     updated_at: Set(now),
                 },
             )
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
         } else {
             entities::discord_oauth_tokens::ActiveModel {
@@ -102,7 +102,7 @@ impl TokenStore {
                 scopes: Set(scopes.to_string()),
                 updated_at: Set(now),
             }
-            .insert(&*self.db)
+            .insert(&self.db)
             .await?;
         }
         Ok(())
@@ -111,7 +111,7 @@ impl TokenStore {
     /// Fetch and decrypt the stored tuple. Returns `NotFound` if no row.
     pub async fn fetch(&self, user_id: i64) -> Result<StoredTokens, TokenStoreError> {
         let row = entities::discord_oauth_tokens::Entity::find_by_id(user_id)
-            .one(&*self.db)
+            .one(&self.db)
             .await?
             .ok_or(TokenStoreError::NotFound(user_id))?;
         let access_bytes = self

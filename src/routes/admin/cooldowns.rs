@@ -54,7 +54,7 @@ pub async fn list_cooldowns(
         query = query.filter(entities::cooldown::Column::Key.eq(key));
     }
 
-    let paginator = query.paginate(&*db, page_size);
+    let paginator = query.paginate(&db, page_size);
     let pages = paginator
         .num_items_and_pages()
         .await
@@ -103,7 +103,7 @@ pub async fn upsert_cooldown(
         None => delete_q.filter(entities::cooldown::Column::UserId.is_null()),
     };
     delete_q
-        .exec(&*db)
+        .exec(&db)
         .await
         .map_err(|e| ApiError::Internal(e.into()))?;
 
@@ -114,7 +114,7 @@ pub async fn upsert_cooldown(
         expires_at: Set(payload.expires_at.naive_utc()),
         ..Default::default()
     }
-    .insert(&*db)
+    .insert(&db)
     .await
     .map_err(|e| ApiError::Internal(e.into()))?;
 
@@ -141,7 +141,7 @@ pub async fn delete_cooldown(
 ) -> CalibornResult<StatusCode> {
     let db = state.service_registry.db_handle();
     entities::cooldown::Entity::delete_by_id(id)
-        .exec(&*db)
+        .exec(&db)
         .await
         .map_err(|e| ApiError::Internal(e.into()))?;
     Ok(StatusCode::NO_CONTENT)
@@ -178,7 +178,7 @@ pub async fn bulk_clear_cooldowns(
         query = query.filter(entities::cooldown::Column::Key.eq(key));
     }
     let res = query
-        .exec(&*db)
+        .exec(&db)
         .await
         .map_err(|e| ApiError::Internal(e.into()))?;
     Ok(Json(CooldownBulkClearResponse {

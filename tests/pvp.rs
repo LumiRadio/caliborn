@@ -42,7 +42,7 @@ async fn challenge_resolves_and_transfers_bet(#[future] scenario: ScenarioEnv) {
     }
 
     let history_count = entities::minigame_history::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(history_count, 1);

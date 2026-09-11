@@ -5,7 +5,7 @@
 
 use crate::{
     ServiceRegistry,
-    repositories::{AlwaysCloneableConnection, BaseRepository},
+    repositories::{BaseRepository, DatabaseConnection},
 };
 
 pub mod dice;
@@ -25,7 +25,7 @@ pub struct MinigameService {
 }
 
 impl MinigameService {
-    pub fn new(db: &AlwaysCloneableConnection, registry: &ServiceRegistry) -> Self {
+    pub fn new(db: &DatabaseConnection, registry: &ServiceRegistry) -> Self {
         Self {
             slots: SlotsService::new(
                 BaseRepository::new(db),

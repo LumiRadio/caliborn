@@ -4,8 +4,8 @@ use axum::{
     routing::{get, put},
 };
 use reqwest::StatusCode;
+use sea_orm::sea_query::{Expr, extension::postgres::PgExpr};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
-use sea_query::{Expr, extension::postgres::PgExpr};
 
 use crate::{
     AppState,
@@ -54,7 +54,7 @@ pub async fn list_users(
         }
     }
 
-    let paginator = query.paginate(&*db, page_size);
+    let paginator = query.paginate(&db, page_size);
     let pages = paginator
         .num_items_and_pages()
         .await
@@ -94,7 +94,7 @@ pub async fn get_user(
 ) -> CalibornResult<Json<AdminUserDto>> {
     let db = state.service_registry.db_handle();
     let user = entities::users::Entity::find_by_id(id)
-        .one(&*db)
+        .one(&db)
         .await
         .map_err(|e| ApiError::Internal(e.into()))?
         .ok_or_else(|| {
@@ -130,7 +130,7 @@ pub async fn patch_user(
 ) -> CalibornResult<Json<AdminUserDto>> {
     let db = state.service_registry.db_handle();
     let existing = entities::users::Entity::find_by_id(id)
-        .one(&*db)
+        .one(&db)
         .await
         .map_err(|e| ApiError::Internal(e.into()))?
         .ok_or_else(|| {
@@ -156,7 +156,7 @@ pub async fn patch_user(
     }
 
     let updated = active
-        .update(&*db)
+        .update(&db)
         .await
         .map_err(|e| ApiError::Internal(e.into()))?;
     Ok(Json(updated.into()))
@@ -185,7 +185,7 @@ pub async fn get_user_permissions(
     let perm_service = state.service_registry.permission_service();
 
     let user = entities::users::Entity::find_by_id(id)
-        .one(&*db)
+        .one(&db)
         .await
         .map_err(|e| ApiError::Internal(e.into()))?
         .ok_or_else(|| {

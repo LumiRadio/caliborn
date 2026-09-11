@@ -26,6 +26,8 @@ where
     <<A as ActiveModelTrait>::Entity as EntityTrait>::Model: IntoActiveModel<A>,
     for<'de> <<A as ActiveModelTrait>::Entity as EntityTrait>::Model: serde::de::Deserialize<'de>,
     A: ActiveModelTrait + Send + Sync,
+    A: sea_orm::TryIntoModel<<<A as ActiveModelTrait>::Entity as EntityTrait>::Model>,
+    <<A as ActiveModelTrait>::Entity as EntityTrait>::Model: serde::Serialize,
     sea_orm::Insert<A>: Send + Sync,
     <A as ActiveModelTrait>::Entity: EntityName,
 {
@@ -77,7 +79,7 @@ async fn has_id_column(
           )"
             );
             let result = db
-                .query_one(Statement::from_string(DatabaseBackend::Postgres, query))
+                .query_one_raw(Statement::from_string(DatabaseBackend::Postgres, query))
                 .await?;
             result.is_some_and(|row| row.try_get::<bool>("", "exists").unwrap_or(false))
         }
@@ -88,13 +90,13 @@ async fn has_id_column(
           WHERE name = 'id'"
             );
             let result = db
-                .query_one(Statement::from_string(DatabaseBackend::Sqlite, query))
+                .query_one_raw(Statement::from_string(DatabaseBackend::Sqlite, query))
                 .await?;
             result.is_some_and(|row| row.try_get::<i32>("", "count").unwrap_or(0) > 0)
         }
-        DatabaseBackend::MySql => {
+        other => {
             return Err(anyhow::anyhow!(
-                "Unsupported database backend `MySQL` for id column check"
+                "Unsupported database backend `{other:?}` for id column check"
             ));
         }
     };
@@ -119,7 +121,7 @@ async fn is_auto_increment(
                 "SELECT pg_get_serial_sequence('{table_name}', 'id') IS NOT NULL as is_serial"
             );
             let result = db
-                .query_one(Statement::from_string(DatabaseBackend::Postgres, query))
+                .query_one_raw(Statement::from_string(DatabaseBackend::Postgres, query))
                 .await?;
             result.is_some_and(|row| row.try_get::<bool>("", "is_serial").unwrap_or(false))
         }
@@ -127,16 +129,16 @@ async fn is_auto_increment(
             let query =
                 format!("SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}'");
             let result = db
-                .query_one(Statement::from_string(DatabaseBackend::Sqlite, query))
+                .query_one_raw(Statement::from_string(DatabaseBackend::Sqlite, query))
                 .await?;
             result.is_some_and(|row| {
                 row.try_get::<String>("", "sql")
                     .is_ok_and(|sql| sql.to_lowercase().contains("autoincrement"))
             })
         }
-        DatabaseBackend::MySql => {
+        other => {
             return Err(anyhow::anyhow!(
-                "Unsupported database backend `MySQL` for auto-increment check"
+                "Unsupported database backend `{other:?}` for auto-increment check"
             ));
         }
     };
@@ -168,7 +170,7 @@ pub async fn reset_auto_increment(
                 "SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), COALESCE(MAX(id), 0) \
                  + 1, false) FROM {table_name}"
             );
-            db.execute(Statement::from_sql_and_values(
+            db.execute_raw(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 &query_str,
                 vec![],
@@ -180,16 +182,16 @@ pub async fn reset_auto_increment(
                 "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM {table_name}) WHERE name = \
                  '{table_name}'"
             );
-            db.execute(Statement::from_sql_and_values(
+            db.execute_raw(Statement::from_sql_and_values(
                 DatabaseBackend::Sqlite,
                 &query_str,
                 vec![],
             ))
             .await?;
         }
-        DatabaseBackend::MySql => {
+        other => {
             return Err(anyhow::anyhow!(
-                "Unsupported database backend `MySQL` for auto-increment reset"
+                "Unsupported database backend `{other:?}` for auto-increment reset"
             ));
         }
     }

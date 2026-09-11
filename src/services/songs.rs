@@ -13,7 +13,7 @@ use crate::{
     entities,
     liquidsoap::{LiquidsoapClient, LiquidsoapError, QueueItem},
     repositories::{
-        AlwaysCloneableConnection, BaseRepository,
+        BaseRepository, DatabaseConnection,
         favourite_songs::{CreateFavouriteSongDto, FavouriteSongRepositoryExt},
         song_history::SongHistoryRepositoryExt,
         song_requests::CreateSongRequestDto,
@@ -117,7 +117,7 @@ pub struct SongService {
 
 impl SongService {
     pub fn new(
-        db: &AlwaysCloneableConnection,
+        db: &DatabaseConnection,
         registry: &ServiceRegistry,
         liquidsoap_client: Arc<Mutex<dyn LiquidsoapClient>>,
     ) -> Self {

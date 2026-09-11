@@ -19,7 +19,6 @@ use axum::{
 };
 use caliborn::{
     AppState, RealtimeBroadcaster, ServiceRegistry, entities,
-    repositories::AlwaysCloneableConnection,
     services::{UserId, auth::Claims},
 };
 use sea_orm::{ActiveValue, EntityTrait};
@@ -188,7 +187,7 @@ pub fn permissive_liquidsoap() -> MockLiquidsoapClient {
 }
 
 /// Spin up a fresh testcontainer Postgres, migrate, and seed the song fixtures.
-async fn scenario_conn() -> (AlwaysCloneableConnection, ContainerAsync<Postgres>) {
+async fn scenario_conn() -> (DatabaseConnection, ContainerAsync<Postgres>) {
     let container = Postgres::default()
         .with_tag("12")
         .start()
@@ -209,7 +208,7 @@ async fn scenario_conn() -> (AlwaysCloneableConnection, ContainerAsync<Postgres>
 
     seed(&conn).await.expect("Failed to seed database");
 
-    (AlwaysCloneableConnection::from(conn), container)
+    (conn, container)
 }
 
 async fn build_scenario(mock: MockLiquidsoapClient) -> ScenarioEnv {
@@ -271,7 +270,7 @@ pub struct ScenarioEnv {
     /// Drive the real router over HTTP (shares `registry`'s state).
     pub router: Router,
     /// Raw DB handle for assertions.
-    pub conn: AlwaysCloneableConnection,
+    pub conn: DatabaseConnection,
     /// Subscribe before an action to assert broadcast events.
     pub broadcaster: RealtimeBroadcaster,
     jwt_secret: Hmac<Sha256>,
@@ -296,7 +295,7 @@ impl ScenarioEnv {
             watched_time: ActiveValue::set(watched_time),
             ..Default::default()
         })
-        .exec(&*self.conn)
+        .exec(&self.conn)
         .await
         .unwrap();
     }
@@ -313,7 +312,7 @@ impl ScenarioEnv {
             file_hash: ActiveValue::set(file_hash.to_string()),
             bitrate: ActiveValue::set(320),
         })
-        .exec(&*self.conn)
+        .exec(&self.conn)
         .await
         .unwrap();
     }
@@ -334,7 +333,7 @@ impl ScenarioEnv {
             migrated: ActiveValue::set(migrated),
             ..Default::default()
         })
-        .exec(&*self.conn)
+        .exec(&self.conn)
         .await
         .unwrap();
     }
@@ -349,7 +348,7 @@ impl ScenarioEnv {
                 ..Default::default()
             },
         )
-        .exec(&*self.conn)
+        .exec(&self.conn)
         .await
         .unwrap();
     }
@@ -362,14 +361,14 @@ impl ScenarioEnv {
             permission: ActiveValue::set(permission.to_string()),
             granted: ActiveValue::set(true),
         })
-        .exec(&*self.conn)
+        .exec(&self.conn)
         .await
         .unwrap();
     }
 
     pub async fn balance(&self, id: i64) -> i32 {
         entities::users::Entity::find_by_id(id)
-            .one(&*self.conn)
+            .one(&self.conn)
             .await
             .unwrap()
             .unwrap()

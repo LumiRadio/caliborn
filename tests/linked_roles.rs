@@ -28,12 +28,12 @@ async fn snapshot_roundtrips(#[future] scenario: ScenarioEnv) {
             boonbucks_snapshot: ActiveValue::set(Some(500)),
         },
     )
-    .exec(&*env.conn)
+    .exec(&env.conn)
     .await
     .unwrap();
 
     let row = entities::discord_role_connections::Entity::find_by_id(1_i64)
-        .one(&*env.conn)
+        .one(&env.conn)
         .await
         .unwrap()
         .unwrap();

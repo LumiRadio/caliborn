@@ -1,13 +1,12 @@
-use sea_orm::{
-    ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, Select, Statement,
-};
-use sea_query::{Expr, OnConflict, Query, UnionType};
+use sea_orm::ExprTrait;
+use sea_orm::sea_query;
+use sea_orm::sea_query::{Expr, OnConflict, Query, UnionType};
+use sea_orm::{ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, Select};
 use shared_constants::permissions::Permission;
 
 use crate::{
     RepositoryError, entities, generate_dtos,
     repositories::{ApplyQueryFilter, BaseRepository},
-    sea_orm_utils::BoxedQueryBuilder,
 };
 
 generate_dtos!(
@@ -147,7 +146,7 @@ impl UserPermissionRepositoryExt for BaseRepository<entities::user_permissions::
 
         entities::user_permissions::Entity::insert_many(to_insert)
             .on_conflict(
-                OnConflict::columns([
+                sea_orm::sea_query::OnConflict::columns([
                     entities::user_permissions::Column::UserId,
                     entities::user_permissions::Column::Permission,
                 ])
@@ -246,18 +245,7 @@ impl UserPermissionRepositoryExt for BaseRepository<entities::user_permissions::
             .union(UnionType::Except, revoked_query)
             .to_owned();
 
-        let (sql, values) = query.build(BoxedQueryBuilder(
-            self.db.get_database_backend().get_query_builder(),
-        ));
-
-        let result = self
-            .db
-            .query_all(Statement::from_sql_and_values(
-                self.db.get_database_backend(),
-                sql,
-                values,
-            ))
-            .await?;
+        let result = self.db.query_all(&query).await?;
 
         Ok(result
             .into_iter()

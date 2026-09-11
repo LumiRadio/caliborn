@@ -18,7 +18,7 @@ use crate::{
     AppState, RepositoryError,
     dtos::error::{ApiError, PublicError, ToPublicError},
     entities,
-    repositories::AlwaysCloneableConnection,
+    repositories::DatabaseConnection,
     services::auth::{Actor, AuthenticatedUser},
 };
 
@@ -66,11 +66,11 @@ impl ToPublicError for PermissionServiceError {
 }
 
 pub struct PermissionService {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
 }
 
 impl PermissionService {
-    pub fn new(db: &AlwaysCloneableConnection) -> Self {
+    pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
     }
 
@@ -83,13 +83,13 @@ impl PermissionService {
         let mut perms: HashSet<String> = HashSet::new();
 
         let user = entities::users::Entity::find_by_id(user_id)
-            .one(&*self.db)
+            .one(&self.db)
             .await?;
 
         if let Some(user) = user {
             let role_perms = entities::role_permissions::Entity::find()
                 .filter(entities::role_permissions::Column::Role.eq(user.role))
-                .all(&*self.db)
+                .all(&self.db)
                 .await?;
             for rp in role_perms {
                 perms.insert(rp.permission);
@@ -99,7 +99,7 @@ impl PermissionService {
         let user_perms = entities::user_permissions::Entity::find()
             .filter(entities::user_permissions::Column::UserId.eq(user_id))
             .filter(entities::user_permissions::Column::Granted.eq(true))
-            .all(&*self.db)
+            .all(&self.db)
             .await?;
         for up in user_perms {
             perms.insert(up.permission);
@@ -109,13 +109,13 @@ impl PermissionService {
     }
 
     pub async fn list_roles(&self) -> Result<Vec<entities::roles::Model>, PermissionServiceError> {
-        Ok(entities::roles::Entity::find().all(&*self.db).await?)
+        Ok(entities::roles::Entity::find().all(&self.db).await?)
     }
 
     pub async fn list_permissions(
         &self,
     ) -> Result<Vec<entities::permissions::Model>, PermissionServiceError> {
-        Ok(entities::permissions::Entity::find().all(&*self.db).await?)
+        Ok(entities::permissions::Entity::find().all(&self.db).await?)
     }
 
     pub async fn list_role_permissions(
@@ -125,7 +125,7 @@ impl PermissionService {
         self.require_role(role).await?;
         Ok(entities::role_permissions::Entity::find()
             .filter(entities::role_permissions::Column::Role.eq(role))
-            .all(&*self.db)
+            .all(&self.db)
             .await?)
     }
 
@@ -135,7 +135,7 @@ impl PermissionService {
     ) -> Result<Vec<entities::user_permissions::Model>, PermissionServiceError> {
         Ok(entities::user_permissions::Entity::find()
             .filter(entities::user_permissions::Column::UserId.eq(user_id))
-            .all(&*self.db)
+            .all(&self.db)
             .await?)
     }
 
@@ -145,7 +145,7 @@ impl PermissionService {
         description: &str,
     ) -> Result<entities::roles::Model, PermissionServiceError> {
         if entities::roles::Entity::find_by_id(name.to_string())
-            .one(&*self.db)
+            .one(&self.db)
             .await?
             .is_some()
         {
@@ -158,7 +158,7 @@ impl PermissionService {
             built_in: Set(false),
         };
         let inserted = entities::roles::Entity::insert(model)
-            .exec_with_returning(&*self.db)
+            .exec_with_returning(&self.db)
             .await?;
         Ok(inserted)
     }
@@ -172,10 +172,10 @@ impl PermissionService {
         }
         entities::role_permissions::Entity::delete_many()
             .filter(entities::role_permissions::Column::Role.eq(name))
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
         entities::roles::Entity::delete_by_id(name.to_string())
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
         Ok(())
     }
@@ -191,7 +191,7 @@ impl PermissionService {
         let exists = entities::role_permissions::Entity::find()
             .filter(entities::role_permissions::Column::Role.eq(role))
             .filter(entities::role_permissions::Column::Permission.eq(permission))
-            .one(&*self.db)
+            .one(&self.db)
             .await?;
         if exists.is_some() {
             return Ok(());
@@ -201,7 +201,7 @@ impl PermissionService {
             role: Set(role.to_string()),
             permission: Set(permission.to_string()),
         }
-        .insert(&*self.db)
+        .insert(&self.db)
         .await?;
         Ok(())
     }
@@ -214,7 +214,7 @@ impl PermissionService {
         entities::role_permissions::Entity::delete_many()
             .filter(entities::role_permissions::Column::Role.eq(role))
             .filter(entities::role_permissions::Column::Permission.eq(permission))
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
         Ok(())
     }
@@ -229,7 +229,7 @@ impl PermissionService {
         let existing = entities::user_permissions::Entity::find()
             .filter(entities::user_permissions::Column::UserId.eq(user_id))
             .filter(entities::user_permissions::Column::Permission.eq(permission))
-            .one(&*self.db)
+            .one(&self.db)
             .await?;
 
         if let Some(row) = existing {
@@ -241,7 +241,7 @@ impl PermissionService {
                 permission: ActiveValue::unchanged(row.permission),
                 granted: Set(true),
             }
-            .update(&*self.db)
+            .update(&self.db)
             .await?;
         } else {
             entities::user_permissions::ActiveModel {
@@ -249,7 +249,7 @@ impl PermissionService {
                 permission: Set(permission.to_string()),
                 granted: Set(true),
             }
-            .insert(&*self.db)
+            .insert(&self.db)
             .await?;
         }
         Ok(())
@@ -263,7 +263,7 @@ impl PermissionService {
         entities::user_permissions::Entity::delete_many()
             .filter(entities::user_permissions::Column::UserId.eq(user_id))
             .filter(entities::user_permissions::Column::Permission.eq(permission))
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
         Ok(())
     }
@@ -287,7 +287,7 @@ impl PermissionService {
                 sea_orm::sea_query::Expr::value(role_value),
             )
             .filter(entities::users::Column::Id.eq(user_id))
-            .exec(&*self.db)
+            .exec(&self.db)
             .await?;
         Ok(())
     }
@@ -297,7 +297,7 @@ impl PermissionService {
         name: &str,
     ) -> Result<entities::roles::Model, PermissionServiceError> {
         entities::roles::Entity::find_by_id(name.to_string())
-            .one(&*self.db)
+            .one(&self.db)
             .await?
             .ok_or_else(|| PermissionServiceError::RoleNotFound(name.to_string()))
     }
@@ -307,7 +307,7 @@ impl PermissionService {
         name: &str,
     ) -> Result<entities::permissions::Model, PermissionServiceError> {
         entities::permissions::Entity::find_by_id(name.to_string())
-            .one(&*self.db)
+            .one(&self.db)
             .await?
             .ok_or_else(|| PermissionServiceError::PermissionNotFound(name.to_string()))
     }

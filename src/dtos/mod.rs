@@ -35,7 +35,7 @@ use axum::{extract::FromRequest, response::IntoResponse};
 use axum_macros::FromRequestParts;
 use error::ApiError;
 use reqwest::StatusCode;
-use sea_query::Nullable;
+use sea_orm::sea_query::Nullable;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod admin;

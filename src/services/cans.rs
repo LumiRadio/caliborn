@@ -8,7 +8,7 @@ use crate::{
     dtos::error::{PublicError, ToPublicError},
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository, RepositoryError,
+        BaseRepository, DatabaseConnection, RepositoryError,
         cans::{CanRepositoryExt, CreateCanDto},
     },
     services::cooldowns::{
@@ -236,7 +236,7 @@ pub struct CansService {
 }
 
 impl CansService {
-    pub fn new(db: &AlwaysCloneableConnection, registry: &ServiceRegistry) -> Self {
+    pub fn new(db: &DatabaseConnection, registry: &ServiceRegistry) -> Self {
         Self {
             can_repo: BaseRepository::new(db),
             cooldown_service: registry.cooldown_service(),

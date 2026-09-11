@@ -101,7 +101,7 @@ async fn maybe_push_linked_roles(
     let last_req = entities::song_requests::Entity::find()
         .filter(entities::song_requests::Column::SongId.eq(file_path))
         .order_by_desc(entities::song_requests::Column::CreatedAt)
-        .one(&*db)
+        .one(&db)
         .await?;
     let Some(req) = last_req else {
         return Ok(());

@@ -1,7 +1,9 @@
+use sea_orm::ExprTrait;
 use std::str::FromStr;
 
+use sea_orm::sea_query;
+use sea_orm::sea_query::{BinOper, Expr, Func, SimpleExpr};
 use sea_orm::{ColumnTrait, Iden, IdenStatic, Iterable};
-use sea_query::{BinOper, Expr, Func, SimpleExpr};
 
 #[derive(Iden)]
 #[iden = "unnest"]

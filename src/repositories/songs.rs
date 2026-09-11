@@ -1,5 +1,5 @@
+use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::{QueryOrder, QuerySelect, prelude::*};
-use sea_query::extension::postgres::PgExpr;
 
 use crate::{
     dtos::{

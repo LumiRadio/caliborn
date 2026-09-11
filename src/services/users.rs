@@ -13,7 +13,7 @@ use crate::{
     },
     entities,
     repositories::{
-        AlwaysCloneableConnection, BaseRepository, RepositoryError,
+        BaseRepository, DatabaseConnection, RepositoryError,
         permissions::UserPermissionRepositoryExt,
         users::{CreateUserDto, UpdateUserDto, UserRepositoryExt},
     },
@@ -66,7 +66,7 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub fn new(db: &AlwaysCloneableConnection, registry: &ServiceRegistry) -> Self {
+    pub fn new(db: &DatabaseConnection, registry: &ServiceRegistry) -> Self {
         Self {
             user_repo: BaseRepository::new(db),
             permissions_repo: BaseRepository::new(db),

@@ -5,7 +5,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use crate::{
-    repositories::{AlwaysCloneableConnection, ApplyQueryFilter, ApplyUpdates, BaseRepository},
+    repositories::{ApplyQueryFilter, ApplyUpdates, BaseRepository, DatabaseConnection},
     services::admin::{
         error::AdminError,
         schema::{FieldMeta, schema_for},
@@ -30,7 +30,7 @@ pub trait AdminResource: Send + Sync {
 }
 
 pub struct EntityResource<E, C, U> {
-    db: AlwaysCloneableConnection,
+    db: DatabaseConnection,
     name: String,
     _types: PhantomData<fn() -> (E, C, U)>,
 }
@@ -46,7 +46,7 @@ where
     C: IntoActiveModel<E::ActiveModel> + DeserializeOwned + Send + Sync,
     U: ApplyUpdates<E::ActiveModel> + DeserializeOwned + Send + Sync,
 {
-    pub fn new(db: &AlwaysCloneableConnection, name: impl Into<String>) -> Self {
+    pub fn new(db: &DatabaseConnection, name: impl Into<String>) -> Self {
         Self {
             db: db.clone(),
             name: name.into(),

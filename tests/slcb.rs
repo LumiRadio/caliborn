@@ -77,7 +77,7 @@ async fn dry_run_imports_nothing(#[future] scenario: ScenarioEnv) {
     assert_eq!(summary.inserted, 1);
 
     let count = entities::slcb_currency::Entity::find()
-        .count(&*env.conn)
+        .count(&env.conn)
         .await
         .unwrap();
     assert_eq!(count, 0);
@@ -107,7 +107,7 @@ async fn match_imports_balances_for_linked_user(#[future] scenario: ScenarioEnv)
     assert_eq!(summary.matched, 1);
 
     let user = entities::users::Entity::find_by_id(1_i64)
-        .one(&*env.conn)
+        .one(&env.conn)
         .await
         .unwrap()
         .unwrap();
@@ -141,7 +141,7 @@ async fn match_skips_already_migrated(#[future] scenario: ScenarioEnv) {
     assert_eq!(summary.already_migrated, 1);
 
     let user = entities::users::Entity::find_by_id(1_i64)
-        .one(&*env.conn)
+        .one(&env.conn)
         .await
         .unwrap()
         .unwrap();
@@ -176,7 +176,7 @@ async fn match_is_idempotent(#[future] scenario: ScenarioEnv) {
     assert_eq!(s2.already_migrated, 1);
 
     let user = entities::users::Entity::find_by_id(1_i64)
-        .one(&*env.conn)
+        .one(&env.conn)
         .await
         .unwrap()
         .unwrap();
