@@ -21,8 +21,6 @@ pub mod song_history;
 pub mod song_requests;
 pub mod songs;
 pub mod tags;
-// Currently not in use, the frontend and bot are supposed to update user data
-// pub mod token_storage;
 pub mod users;
 
 pub type DynError = Box<dyn std::error::Error + Send + Sync + 'static>;

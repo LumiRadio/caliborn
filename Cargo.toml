@@ -5,7 +5,7 @@ members = [".", "migration", "shared_constants"]
 name = "caliborn"
 description = "API server for lumiRadio"
 version = "0.1.0"
-authors = ["cozygalvinism"]
+authors = ["cozyGalvinism <jean@der-capta.in>"]
 edition = "2024"
 
 [dependencies]
