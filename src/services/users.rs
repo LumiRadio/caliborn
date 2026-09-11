@@ -61,7 +61,6 @@ impl ToPublicError for UserServiceError {
 pub struct UserService {
     user_repo: BaseRepository<entities::users::Entity>,
     permissions_repo: BaseRepository<entities::user_permissions::Entity>,
-    roles_repo: BaseRepository<entities::roles::Entity>,
 
     cooldown_service: Arc<CooldownService>,
 }
@@ -71,7 +70,6 @@ impl UserService {
         Self {
             user_repo: BaseRepository::new(db),
             permissions_repo: BaseRepository::new(db),
-            roles_repo: BaseRepository::new(db),
             cooldown_service: registry.cooldown_service(),
         }
     }

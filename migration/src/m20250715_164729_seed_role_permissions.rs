@@ -1,4 +1,4 @@
-use sea_orm_migration::{prelude::*, schema::*, sea_orm::Statement};
+use sea_orm_migration::{prelude::*, sea_orm::Statement};
 use shared_constants::permissions::{
     Permission, PERM_MANAGE_ACTIVITY_ROLES, PERM_MANAGE_STREAM, PERM_MANAGE_USERS, PERM_USE_BOT,
     PERM_USE_MINIGAMES, PERM_USE_WEB_CHAT,
@@ -77,7 +77,7 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Ok(())
     }
 }
