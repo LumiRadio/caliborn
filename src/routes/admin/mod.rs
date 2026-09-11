@@ -2,8 +2,8 @@ use axum::Router;
 
 use crate::{AppState, services::auth::authenticate};
 
-pub mod admin_crud;
 pub mod cooldowns;
+pub mod crud;
 pub mod permissions;
 pub mod slcb;
 pub mod users;
@@ -14,5 +14,6 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .merge(permissions::routes())
         .merge(cooldowns::routes())
         .merge(slcb::routes())
+        .merge(crud::routes())
         .layer(axum::middleware::from_fn_with_state(state, authenticate))
 }

@@ -6,6 +6,11 @@ use crate::{
     repositories::{AlwaysCloneableConnection, ApplyQueryFilter, ApplyUpdates, BaseRepository},
 };
 
+pub mod error;
+pub mod registry;
+pub mod resource;
+pub mod schema;
+
 #[derive(thiserror::Error, Debug)]
 pub enum AdminCrudServiceError {
     #[error(transparent)]

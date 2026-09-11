@@ -73,7 +73,6 @@ pub async fn add_can(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_MINIGAMES)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     can_service.add(actor.user_id(), CanType::Can).await?;
     let count = can_service.count().await?;

@@ -1,6 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use sea_orm::{ColumnTrait, DeleteMany, QueryFilter, Select};
+use serde::Deserialize;
 
 use crate::{
     entities, generate_dtos,
@@ -21,7 +22,7 @@ impl Display for UnknownCooldownScope {
 impl std::error::Error for UnknownCooldownScope {}
 
 /// A cooldown scope
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum CooldownScope {
     User,
     Global,

@@ -12,24 +12,2066 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/auth/discord/login": {
+    "/admin/cooldowns": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::cooldowns"
+        ],
+        "operationId": "list_cooldowns",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_CooldownDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
       "post": {
         "tags": [
-          "crate::routes::auth"
+          "crate::routes::admin::cooldowns"
         ],
-        "summary": "Logs in a user via Discord",
-        "description": "This endpoint is used to exchange the authorization code received from Discord for an access token.\n\nThe authorization code is obtained by redirecting the user to the [Discord authorization URL](https://discord.com/developers/docs/topics/oauth2#authorization-code-flow).\n\n# Parameters\n\n* `code` - The authorization code received from Discord\n\n# Returns\n\nA `200 OK` response containing the access token, user ID, and expiration time.\n\n# Errors\n\n* `401 Unauthorized` - An authorization error occurred (e.g. invalid authorization code)\n* `500 Internal Server Error` - An internal server error occurred",
-        "operationId": "discord_login",
+        "operationId": "upsert_cooldown",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DiscordLoginRequest"
+                "$ref": "#/components/schemas/UpsertCooldownRequest"
               }
             }
           },
           "required": true
         },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CooldownDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "crate::routes::admin::cooldowns"
+        ],
+        "operationId": "bulk_clear_cooldowns",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CooldownBulkClearResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/cooldowns/{id}": {
+      "delete": {
+        "tags": [
+          "crate::routes::admin::cooldowns"
+        ],
+        "operationId": "delete_cooldown",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/crud/_meta": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::crud"
+        ],
+        "summary": "Every resource name the registry serves.",
+        "operationId": "meta",
+        "responses": {
+          "200": {
+            "description": "Registered resource names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_admin_crud` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/crud/{resource}": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::crud"
+        ],
+        "summary": "List a page of records for `resource`.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "description": "Resource name, as listed by `GET /admin/crud/_meta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of records; shape depends on the resource",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_admin_crud` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "crate::routes::admin::crud"
+        ],
+        "summary": "Create a record. The body is validated against the resource's create DTO.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "description": "Resource name, as listed by `GET /admin/crud/_meta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Resource-specific create payload; see `GET /admin/crud/{resource}/_schema`",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The created record",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Payload did not match the resource's create DTO",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_admin_crud` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/crud/{resource}/_schema": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::crud"
+        ],
+        "summary": "Column metadata for `resource` — drives generic admin form rendering.",
+        "operationId": "schema",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "description": "Resource name, as listed by `GET /admin/crud/_meta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One entry per column",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldMeta"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_admin_crud` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/crud/{resource}/{id}": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::crud"
+        ],
+        "summary": "Read a single record by primary key.",
+        "operationId": "read",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "description": "Resource name, as listed by `GET /admin/crud/_meta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Primary key of the record, as a string",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record, or `null` if no row has that id",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Id could not be parsed into the resource's key type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_admin_crud` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "crate::routes::admin::crud"
+        ],
+        "summary": "Partially update a record. Omitted fields keep their current value.",
+        "operationId": "edit",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "description": "Resource name, as listed by `GET /admin/crud/_meta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Primary key of the record, as a string",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Resource-specific update payload; every field is optional",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The updated record",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Payload did not match the resource's update DTO, or the id was unparseable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_admin_crud` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "crate::routes::admin::crud"
+        ],
+        "summary": "Delete a record by primary key.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "description": "Resource name, as listed by `GET /admin/crud/_meta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Primary key of the record, as a string",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Record deleted"
+          },
+          "400": {
+            "description": "Id could not be parsed into the resource's key type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_admin_crud` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/permissions": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::permissions"
+        ],
+        "operationId": "list_permissions",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/roles": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::permissions"
+        ],
+        "operationId": "list_roles",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "crate::routes::admin::permissions"
+        ],
+        "operationId": "create_role",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/roles/{name}": {
+      "delete": {
+        "tags": [
+          "crate::routes::admin::permissions"
+        ],
+        "operationId": "delete_role",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/roles/{name}/permissions": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::permissions"
+        ],
+        "operationId": "list_role_permissions",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/roles/{name}/permissions/{perm}": {
+      "put": {
+        "tags": [
+          "crate::routes::admin::permissions"
+        ],
+        "operationId": "attach_role_permission",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "perm",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "crate::routes::admin::permissions"
+        ],
+        "operationId": "detach_role_permission",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "perm",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/slcb/import": {
+      "post": {
+        "tags": [
+          "crate::routes::admin::slcb"
+        ],
+        "operationId": "import",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/StreamlabsRecord"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlcbImportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/slcb/match": {
+      "post": {
+        "tags": [
+          "crate::routes::admin::slcb"
+        ],
+        "operationId": "run_match",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlcbMatchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::users"
+        ],
+        "operationId": "list_users",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_AdminUserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::users"
+        ],
+        "operationId": "get_user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "crate::routes::admin::users"
+        ],
+        "operationId": "patch_user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/permissions": {
+      "get": {
+        "tags": [
+          "crate::routes::admin::users"
+        ],
+        "operationId": "get_user_permissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPermissionsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/permissions/{perm}": {
+      "put": {
+        "tags": [
+          "crate::routes::admin::users"
+        ],
+        "operationId": "grant_user_permission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "perm",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "crate::routes::admin::users"
+        ],
+        "operationId": "revoke_user_permission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "perm",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/role": {
+      "put": {
+        "tags": [
+          "crate::routes::admin::users"
+        ],
+        "operationId": "set_user_role",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/slcb-link": {
+      "post": {
+        "tags": [
+          "crate::routes::admin::slcb"
+        ],
+        "operationId": "force_link",
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlcbLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlcbLinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/auth/discord/login": {
+      "get": {
+        "tags": [
+          "crate::routes::auth"
+        ],
+        "summary": "Logs in a user via Discord",
+        "description": "Exchanges the authorization code received from Discord (via the standard\nauthorization-code flow) for a Caliborn JWT.\n\nThe frontend redirects the user to the\n[Discord authorization URL](https://discord.com/developers/docs/topics/oauth2#authorization-code-flow);\nDiscord redirects back with `?code=...`; the frontend then calls this\nendpoint with that code as a query parameter.",
+        "operationId": "discord_login",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "description": "The authorization code received from Discord after the user has authorized your application.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Discord login was successful",
@@ -544,6 +2586,615 @@
         }
       }
     },
+    "/songs/current": {
+      "get": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "get_currently_playing",
+        "responses": {
+          "200": {
+            "description": "The song currently on air",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SongDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nothing has been played yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/favourite": {
+      "post": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "mark_song_as_favourite",
+        "parameters": [
+          {
+            "name": "song_id",
+            "in": "query",
+            "description": "File hash of the song to favourite",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Song added to the caller's favourites"
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_bot` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No song matches the given file hash",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "unmark_song_as_favourite",
+        "parameters": [
+          {
+            "name": "song_id",
+            "in": "query",
+            "description": "File hash of the song to un-favourite",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Song removed from the caller's favourites"
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_bot` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No song matches the given file hash",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/songs/favourite/current": {
+      "post": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "mark_currently_playing_song_as_favourite",
+        "responses": {
+          "200": {
+            "description": "The song currently on air was added to the caller's favourites"
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_bot` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nothing has been played yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/songs/favourites": {
+      "get": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "search_favourite_songs",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[artist]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[album]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[title]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results restricted to the caller's favourites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SongDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_bot` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/songs/history": {
+      "get": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "get_song_history",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recently played songs, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SongDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/queue": {
+      "get": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "get_request_queue",
+        "responses": {
+          "200": {
+            "description": "Pending song requests, in play order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SongListDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/request": {
+      "post": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "request_song",
+        "parameters": [
+          {
+            "name": "file_hash",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Song queued; includes the user and song cooldowns now in effect",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SongWithCooldownInfo"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks the `use_bot` permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No song matches the given file hash",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "User or song is still on cooldown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
+      }
+    },
+    "/songs/search": {
+      "get": {
+        "tags": [
+          "crate::routes::songs"
+        ],
+        "operationId": "search_song",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[artist]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[album]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[title]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full-text search results over the song library",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SongDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/stream/playlist/reload": {
       "post": {
         "tags": [
@@ -939,7 +3590,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "user_jwt": []
+          },
+          {
+            "user_api_key": []
+          }
+        ]
       }
     },
     "/user/me/pay": {
@@ -1167,10 +3826,116 @@
           }
         ]
       }
+    },
+    "/ws": {
+      "get": {
+        "tags": [
+          "crate::routes::ws"
+        ],
+        "summary": "Subscribe to the realtime event stream.",
+        "description": "This is a WebSocket endpoint. OpenAPI cannot describe a WebSocket session —\n3.1 has no concept of one and 3.2 only added Server-Sent Events — so what is\ndocumented here is the **handshake**: the `GET` that upgrades, its\nquery-param auth, and the `101` response. Once upgraded, the server pushes\nJSON-encoded [`crate::realtime::Event`] values (`now_playing`,\n`queue_updated`), discriminated by their `type` field, and never reads from\nthe client except to answer pings.",
+        "operationId": "ws",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "apikey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Switching Protocols — the WebSocket session is open and will stream `realtime::Event` values as JSON text frames"
+          },
+          "400": {
+            "description": "Not a valid WebSocket upgrade request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, duplicated, or invalid `token`/`apikey` query parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AdminUserDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "boonbucks",
+          "watched_time",
+          "migrated",
+          "role",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "boonbucks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_message_sent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "migrated": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "watched_time": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "CanCountDto": {
         "type": "object",
         "required": [
@@ -1211,26 +3976,82 @@
           }
         ]
       },
-      "DiscordLoginRequest": {
+      "CooldownBulkClearResponse": {
         "type": "object",
-        "description": "A request to log in with Discord, part of the OAuth 2.0 flow.\n\nThis is the request body for the /auth/discord/login endpoint, which is used to\nexchange the authorization code for an access token. The code is obtained from\nDiscord after the user authorizes the application.\n\n# Examples\n\n```rust\n# use caliborn::dtos::auth::DiscordLoginRequest;\nlet login_request = DiscordLoginRequest {\n    code: String::from(\"NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee\"),\n};\n```\n\n# External Resources\n\nYou can obtain an authorization code by redirecting the user to the\n[Discord authorization URL](https://discord.com/developers/docs/topics/oauth2#authorization-code-flow).\n\n# Errors\n\nIf the code is invalid or expired, the login endpoint will return an error.",
         "required": [
-          "code"
+          "cleared"
         ],
         "properties": {
-          "code": {
+          "cleared": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "CooldownDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "scope",
+          "key",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
             "type": "string",
-            "description": "The authorization code received from Discord after the user has authorized your application.",
-            "examples": [
-              "NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"
-            ]
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "key": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
           }
-        },
-        "examples": [
-          {
-            "code": "NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee"
+        }
+      },
+      "CooldownInfo": {
+        "type": "object",
+        "required": [
+          "user_cooldown_expires_at",
+          "song_cooldown_expires_at"
+        ],
+        "properties": {
+          "song_cooldown_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user_cooldown_expires_at": {
+            "type": "string",
+            "format": "date-time"
           }
-        ]
+        }
+      },
+      "CreateRoleRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "description"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       },
       "ErrorResponse": {
         "type": "object",
@@ -1264,6 +4085,30 @@
           }
         ]
       },
+      "FieldMeta": {
+        "type": "object",
+        "description": "One column of an admin resource, as reported by\n`GET /admin/crud/{resource}/_schema`.",
+        "required": [
+          "name",
+          "column_type",
+          "nullable",
+          "is_primary_key"
+        ],
+        "properties": {
+          "column_type": {
+            "type": "string"
+          },
+          "is_primary_key": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nullable": {
+            "type": "boolean"
+          }
+        }
+      },
       "LiquidsoapResponseDto": {
         "type": "object",
         "required": [
@@ -1280,6 +4125,229 @@
           }
         ]
       },
+      "Page_SongDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "title",
+                "artist",
+                "album",
+                "duration",
+                "bitrate"
+              ],
+              "properties": {
+                "album": {
+                  "type": "string"
+                },
+                "artist": {
+                  "type": "string"
+                },
+                "bitrate": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "duration": {
+                  "type": "number",
+                  "format": "double"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "PaginatedResponse_AdminUserDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "boonbucks",
+                "watched_time",
+                "migrated",
+                "role",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "boonbucks": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "last_message_sent": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "migrated": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "username": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "watched_time": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "PaginatedResponse_CooldownDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "scope",
+                "key",
+                "expires_at"
+              ],
+              "properties": {
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "PayRequest": {
         "type": "object",
         "description": "Pay boonbucks to another user",
@@ -1292,13 +4360,17 @@
             "type": "integer",
             "format": "int32",
             "description": "Amount of boonbucks to send. Must be > 0.",
-            "example": 50
+            "examples": [
+              50
+            ]
           },
           "recipient_id": {
             "type": "integer",
             "format": "int64",
             "description": "Discord user ID of the recipient.",
-            "example": 675674657
+            "examples": [
+              675674657
+            ]
           }
         },
         "examples": [
@@ -1340,6 +4412,25 @@
             "sender_balance": 950
           }
         ]
+      },
+      "PermissionDto": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "built_in"
+        ],
+        "properties": {
+          "built_in": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       },
       "PlayedRequest": {
         "type": "object",
@@ -1391,7 +4482,7 @@
         },
         "examples": [
           {
-            "played_at": "2026-05-10T12:34:56"
+            "played_at": "2026-05-10T12:34:56Z"
           }
         ]
       },
@@ -1483,7 +4574,7 @@
             "boonbucks": 1234,
             "cans_added": 25,
             "connected_youtube_accounts": [],
-            "created_at": "2023-01-01T00:00:00",
+            "created_at": "2023-01-01T00:00:00Z",
             "id": 675674657,
             "listening_hours": 10,
             "permissions": [
@@ -1494,7 +4585,7 @@
             "position_by_boonbucks": 7,
             "position_by_hours": 3,
             "role": "user",
-            "updated_at": "2023-01-01T00:00:00",
+            "updated_at": "2023-01-01T00:00:00Z",
             "username": "Caliborn",
             "watched_time": 36000
           }
@@ -1511,7 +4602,9 @@
             "type": "integer",
             "format": "int64",
             "description": "Discord user ID of the opponent.",
-            "example": 675674657
+            "examples": [
+              675674657
+            ]
           }
         },
         "examples": [
@@ -1629,6 +4722,25 @@
           }
         ]
       },
+      "RoleDto": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "built_in"
+        ],
+        "properties": {
+          "built_in": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "RollResult": {
         "type": "object",
         "required": [
@@ -1701,6 +4813,121 @@
           }
         }
       },
+      "SetUserRoleRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`null` clears the role (resets to default `user`)."
+          }
+        }
+      },
+      "SlcbImportResponse": {
+        "type": "object",
+        "required": [
+          "inserted",
+          "updated",
+          "skipped"
+        ],
+        "properties": {
+          "inserted": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "SlcbLinkRequest": {
+        "type": "object",
+        "required": [
+          "slcb_username"
+        ],
+        "properties": {
+          "slcb_username": {
+            "type": "string"
+          }
+        }
+      },
+      "SlcbLinkResponse": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "slcb_username",
+          "hours_credited",
+          "points_credited",
+          "watched_time_after",
+          "boonbucks_after"
+        ],
+        "properties": {
+          "boonbucks_after": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hours_credited": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "points_credited": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "slcb_username": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "watched_time_after": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SlcbMatchResponse": {
+        "type": "object",
+        "required": [
+          "considered",
+          "matched",
+          "already_migrated",
+          "no_slcb_row"
+        ],
+        "properties": {
+          "already_migrated": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "considered": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "matched": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "no_slcb_row": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "SlotSymbol": {
         "type": "string",
         "enum": [
@@ -1723,7 +4950,9 @@
             "type": "integer",
             "format": "int32",
             "description": "Wager in boonbucks. Must be between 1 and 10 inclusive.",
-            "example": 5,
+            "examples": [
+              5
+            ],
             "maximum": 10,
             "minimum": 1
           }
@@ -1731,6 +4960,55 @@
         "examples": [
           {
             "bet": 5
+          }
+        ]
+      },
+      "SongDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "album",
+          "duration",
+          "bitrate"
+        ],
+        "properties": {
+          "album": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "bitrate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "duration": {
+            "type": "number",
+            "format": "double"
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "SongListDto": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SongDto"
+        }
+      },
+      "SongWithCooldownInfo": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SongDto"
+          },
+          {
+            "$ref": "#/components/schemas/CooldownInfo"
           }
         ]
       },
@@ -1773,6 +5051,90 @@
           }
         }
       },
+      "StreamlabsRecord": {
+        "type": "object",
+        "description": "One row from a Streamlabs Chatbot export. Fields use serde aliases so the\nloader accepts both the modern (`Name`, `UserID`, `Hours`, `Points`) and\nsnake-case shapes commonly seen in older exports.",
+        "required": [
+          "username"
+        ],
+        "properties": {
+          "hours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "points": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "user_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "boonbucks": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "migrated": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "watched_time": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "UpsertCooldownRequest": {
+        "type": "object",
+        "required": [
+          "scope",
+          "key",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "key": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "UserDto": {
         "type": "object",
         "description": "A user of lumiRadio",
@@ -1789,19 +5151,25 @@
             "type": "integer",
             "format": "int32",
             "description": "The amount of boonbucks (virtual currency) the user has accumulated.\n\nBoonbucks can be earned through various activities on the platform and\ncan be used for purchases or interactions.",
-            "example": 100
+            "examples": [
+              100
+            ]
           },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "description": "The timestamp when the user account was created.",
-            "example": "2023-01-01T00:00:00"
+            "examples": [
+              "2023-01-01T00:00:00Z"
+            ]
           },
           "id": {
             "type": "integer",
             "format": "int64",
             "description": "The unique identifier of the user.",
-            "example": 675674657
+            "examples": [
+              675674657
+            ]
           },
           "last_message_sent": {
             "type": [
@@ -1810,18 +5178,24 @@
             ],
             "format": "date-time",
             "description": "The timestamp of the last message sent by the user.\n\nThis is `None` if the user has never sent a message.",
-            "example": "2023-01-01T00:00:00"
+            "examples": [
+              "2023-01-01T00:00:00Z"
+            ]
           },
           "migrated": {
             "type": "boolean",
             "description": "Whether the user has migrated their data from the old radio bot.\n\nThis is `true` if the user has migrated their data from the old radio bot.",
-            "example": true
+            "examples": [
+              true
+            ]
           },
           "updated_at": {
             "type": "string",
             "format": "date-time",
             "description": "The timestamp when the user account was last updated.",
-            "example": "2023-01-01T00:00:00"
+            "examples": [
+              "2023-01-01T00:00:00Z"
+            ]
           },
           "username": {
             "type": [
@@ -1829,27 +5203,61 @@
               "null"
             ],
             "description": "The username of the user, if they have set one.\n\nThis is `None` if the user has not set a username yet.",
-            "example": "Caliborn"
+            "examples": [
+              "Caliborn"
+            ]
           },
           "watched_time": {
             "type": "integer",
             "format": "int64",
             "description": "The total watched time of the user, in seconds.\n\nThis represents the cumulative time the user has spent watching content\non the lumiRadio platform.",
-            "example": 1234567890
+            "examples": [
+              1234567890
+            ]
           }
         },
         "examples": [
           {
             "boonbucks": 100,
-            "created_at": "2023-01-01T00:00:00",
+            "created_at": "2023-01-01T00:00:00Z",
             "id": 675674657,
-            "last_message_sent": "2023-01-01T00:00:00",
+            "last_message_sent": "2023-01-01T00:00:00Z",
             "migrated": true,
-            "updated_at": "2023-01-01T00:00:00",
+            "updated_at": "2023-01-01T00:00:00Z",
             "username": "Caliborn",
             "watched_time": 1234567890
           }
         ]
+      },
+      "UserPermissionsDto": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "role",
+          "direct_permissions",
+          "effective_permissions"
+        ],
+        "properties": {
+          "direct_permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "effective_permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "UserToken": {
         "type": "object",
@@ -1865,26 +5273,34 @@
             "type": "integer",
             "format": "int64",
             "description": "The timestamp when the access token expires.",
-            "example": 1682384222,
+            "examples": [
+              1682384222
+            ],
             "minimum": 0
           },
           "expires_in": {
             "type": "integer",
             "format": "int64",
             "description": "The time in seconds until the access token expires.",
-            "example": 3600,
+            "examples": [
+              3600
+            ],
             "minimum": 0
           },
           "token": {
             "type": "string",
             "description": "An access token which can be used to authenticate to other endpoints.\nThis is a JWT token containing the user's identity information.",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2NzU3NjQ3NjUsImlhdCI6MTY4MjM3NDQyMiwiZXhwIjoxNjgyMzgyNDIyfQ.QUQ0z3O9TqYUv4JzL9Vq7Z0T2Zr4xJnNzK4yRfGpPZ"
+            "examples": [
+              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2NzU3NjQ3NjUsImlhdCI6MTY4MjM3NDQyMiwiZXhwIjoxNjgyMzgyNDIyfQ.QUQ0z3O9TqYUv4JzL9Vq7Z0T2Zr4xJnNzK4yRfGpPZ"
+            ]
           },
           "user_id": {
             "type": "integer",
             "format": "int64",
             "description": "The ID of the user who was logged in.",
-            "example": 675674657,
+            "examples": [
+              675674657
+            ],
             "minimum": 0
           }
         },
@@ -1907,7 +5323,9 @@
             "type": "number",
             "format": "float",
             "description": "Level in `[0.0, 1.0]`.",
-            "example": 0.6,
+            "examples": [
+              0.6
+            ],
             "maximum": 1,
             "minimum": 0
           }

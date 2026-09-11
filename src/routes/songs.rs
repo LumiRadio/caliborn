@@ -9,13 +9,27 @@ use crate::{
     AppState, ServiceRegistry,
     dtos::{
         Query,
-        error::CalibornResult,
+        error::{CalibornResult, ErrorResponse},
         page::{Page, PaginationParams},
         songs::{SearchParams, SongDto, SongListDto, SongRequest, SongWithCooldownInfo},
     },
     services::auth::{AuthenticatedUser, authenticate},
 };
 
+#[utoipa::path(
+    post,
+    path = "/songs/request",
+    params(SongRequest),
+    responses(
+        (status = 200, description = "Song queued; includes the user and song cooldowns now in effect", body = SongWithCooldownInfo),
+        (status = 401, description = "Missing or invalid credentials", body = ErrorResponse),
+        (status = 403, description = "Caller lacks the `use_bot` permission", body = ErrorResponse),
+        (status = 404, description = "No song matches the given file hash", body = ErrorResponse),
+        (status = 429, description = "User or song is still on cooldown", body = ErrorResponse),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
 #[axum::debug_handler]
 pub async fn request_song(
     AuthenticatedUser(actor): AuthenticatedUser,
@@ -29,7 +43,6 @@ pub async fn request_song(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_BOT)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     let song_with_cooldown = song_service
         .request_song(actor.user_id(), &song_request.file_hash)
@@ -37,6 +50,14 @@ pub async fn request_song(
     Ok(song_with_cooldown)
 }
 
+#[utoipa::path(
+    get,
+    path = "/songs/queue",
+    responses(
+        (status = 200, description = "Pending song requests, in play order", body = SongListDto),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    )
+)]
 #[axum::debug_handler]
 pub async fn get_request_queue(
     State(registry): State<ServiceRegistry>,
@@ -49,6 +70,15 @@ pub async fn get_request_queue(
         .map_err(Into::into)
 }
 
+#[utoipa::path(
+    get,
+    path = "/songs/history",
+    params(PaginationParams),
+    responses(
+        (status = 200, description = "Recently played songs, newest first", body = Page<SongDto>),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    )
+)]
 #[axum::debug_handler]
 pub async fn get_song_history(
     State(registry): State<ServiceRegistry>,
@@ -61,6 +91,15 @@ pub async fn get_song_history(
         .map_err(Into::into)
 }
 
+#[utoipa::path(
+    get,
+    path = "/songs/search",
+    params(SearchParams, PaginationParams),
+    responses(
+        (status = 200, description = "Full-text search results over the song library", body = Page<SongDto>),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    )
+)]
 #[axum::debug_handler]
 pub async fn search_song(
     State(registry): State<ServiceRegistry>,
@@ -75,6 +114,18 @@ pub async fn search_song(
         .map(|page| page.map(|song| song.into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/songs/favourites",
+    params(SearchParams, PaginationParams),
+    responses(
+        (status = 200, description = "Search results restricted to the caller's favourites", body = Page<SongDto>),
+        (status = 401, description = "Missing or invalid credentials", body = ErrorResponse),
+        (status = 403, description = "Caller lacks the `use_bot` permission", body = ErrorResponse),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
 #[axum::debug_handler]
 pub async fn search_favourite_songs(
     State(registry): State<ServiceRegistry>,
@@ -89,7 +140,6 @@ pub async fn search_favourite_songs(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_BOT)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     song_service
         .search_favourite_songs(actor.user_id(), &params, &pagination)
@@ -98,6 +148,15 @@ pub async fn search_favourite_songs(
         .map(|page| page.map(|song| song.into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/songs/current",
+    responses(
+        (status = 200, description = "The song currently on air", body = SongDto),
+        (status = 404, description = "Nothing has been played yet", body = ErrorResponse),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    )
+)]
 #[axum::debug_handler]
 pub async fn get_currently_playing(
     State(registry): State<ServiceRegistry>,
@@ -109,6 +168,19 @@ pub async fn get_currently_playing(
         .map_err(Into::into)
 }
 
+#[utoipa::path(
+    post,
+    path = "/songs/favourite",
+    params(("song_id" = String, Query, description = "File hash of the song to favourite")),
+    responses(
+        (status = 200, description = "Song added to the caller's favourites"),
+        (status = 401, description = "Missing or invalid credentials", body = ErrorResponse),
+        (status = 403, description = "Caller lacks the `use_bot` permission", body = ErrorResponse),
+        (status = 404, description = "No song matches the given file hash", body = ErrorResponse),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
 #[axum::debug_handler]
 pub async fn mark_song_as_favourite(
     State(registry): State<ServiceRegistry>,
@@ -122,7 +194,6 @@ pub async fn mark_song_as_favourite(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_BOT)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     song_service
         .mark_song_as_favourite(actor.user_id(), &song_id)
@@ -130,6 +201,19 @@ pub async fn mark_song_as_favourite(
         .map_err(Into::into)
 }
 
+#[utoipa::path(
+    delete,
+    path = "/songs/favourite",
+    params(("song_id" = String, Query, description = "File hash of the song to un-favourite")),
+    responses(
+        (status = 200, description = "Song removed from the caller's favourites"),
+        (status = 401, description = "Missing or invalid credentials", body = ErrorResponse),
+        (status = 403, description = "Caller lacks the `use_bot` permission", body = ErrorResponse),
+        (status = 404, description = "No song matches the given file hash", body = ErrorResponse),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
 #[axum::debug_handler]
 pub async fn unmark_song_as_favourite(
     State(registry): State<ServiceRegistry>,
@@ -143,7 +227,6 @@ pub async fn unmark_song_as_favourite(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_BOT)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     song_service
         .unmark_song_as_favourite(actor.user_id(), &song_id)
@@ -151,6 +234,18 @@ pub async fn unmark_song_as_favourite(
         .map_err(Into::into)
 }
 
+#[utoipa::path(
+    post,
+    path = "/songs/favourite/current",
+    responses(
+        (status = 200, description = "The song currently on air was added to the caller's favourites"),
+        (status = 401, description = "Missing or invalid credentials", body = ErrorResponse),
+        (status = 403, description = "Caller lacks the `use_bot` permission", body = ErrorResponse),
+        (status = 404, description = "Nothing has been played yet", body = ErrorResponse),
+        (status = 500, description = "An internal server error occurred", body = ErrorResponse),
+    ),
+    security(("user_jwt" = []), ("user_api_key" = []))
+)]
 #[axum::debug_handler]
 pub async fn mark_currently_playing_song_as_favourite(
     State(registry): State<ServiceRegistry>,
@@ -163,7 +258,6 @@ pub async fn mark_currently_playing_song_as_favourite(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_BOT)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     song_service
         .mark_currently_playing_song_as_favourite(actor.user_id())

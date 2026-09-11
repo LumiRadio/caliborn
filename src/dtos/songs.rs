@@ -34,7 +34,7 @@ impl From<entities::songs::Model> for SongDto {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct SongListDto(Vec<SongDto>);
 
 impl From<Vec<SongDto>> for SongListDto {
@@ -102,7 +102,8 @@ impl IntoResponse for SongWithCooldownInfo {
     }
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct SongRequest {
     pub file_hash: String,
 }

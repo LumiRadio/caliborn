@@ -38,7 +38,6 @@ pub async fn me(
 
     let user_service = state.service_registry.user_service();
     let user = user_service.get_user(user_id).await?;
-    user_service.update_user_activity(user_id).await?;
 
     Ok(user)
 }

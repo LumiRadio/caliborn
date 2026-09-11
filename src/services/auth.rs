@@ -602,6 +602,13 @@ pub async fn authenticate(
                 .auth_service()
                 .check_api_key(stripped)
                 .await?;
+
+            state
+                .service_registry
+                .user_service()
+                .update_user_activity(user_id.into())
+                .await?;
+
             request.extensions_mut().insert(Actor::User {
                 user_id: user_id.into(),
             });
@@ -635,6 +642,13 @@ pub async fn authenticate(
                     ))
                 })?
             };
+
+            state
+                .service_registry
+                .user_service()
+                .update_user_activity(user_id.into())
+                .await?;
+
             request.extensions_mut().insert(Actor::User {
                 user_id: user_id.into(),
             });

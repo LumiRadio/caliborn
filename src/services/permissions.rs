@@ -406,3 +406,4 @@ define_permission!(pub ManageUsers => shared_constants::permissions::PERM_MANAGE
 define_permission!(pub ManagePermissions => shared_constants::permissions::PERM_MANAGE_PERMISSIONS.name);
 define_permission!(pub ManageCooldowns => shared_constants::permissions::PERM_MANAGE_COOLDOWNS.name);
 define_permission!(pub ManageSlcb => shared_constants::permissions::PERM_MANAGE_SLCB.name);
+define_permission!(pub UseCrud => shared_constants::permissions::PERM_USE_ADMIN_CRUD.name);

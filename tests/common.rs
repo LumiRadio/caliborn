@@ -345,6 +345,19 @@ impl ScenarioEnv {
         .unwrap();
     }
 
+    /// Grant `permission` directly to `user_id` (bypasses roles) so a test can
+    /// exercise a permission-gated route.
+    pub async fn grant_permission(&self, user_id: i64, permission: &str) {
+        entities::user_permissions::Entity::insert(entities::user_permissions::ActiveModel {
+            user_id: ActiveValue::set(user_id),
+            permission: ActiveValue::set(permission.to_string()),
+            granted: ActiveValue::set(true),
+        })
+        .exec(&*self.conn)
+        .await
+        .unwrap();
+    }
+
     pub async fn balance(&self, id: i64) -> i32 {
         entities::users::Entity::find_by_id(id)
             .one(&*self.conn)

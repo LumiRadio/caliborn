@@ -44,7 +44,6 @@ pub async fn get_bear_count(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_MINIGAMES)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     let count = can_service.count().await?;
     Ok(CanCountDto { count })
@@ -83,7 +82,6 @@ pub async fn add_bear(
     user_service
         .user_has_permission(actor.user_id(), PERM_USE_MINIGAMES)
         .await?;
-    user_service.update_user_activity(actor.user_id()).await?;
 
     can_service.add(actor.user_id(), CanType::Bear).await?;
     let count = can_service.count().await?;

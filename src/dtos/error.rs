@@ -37,6 +37,7 @@ pub struct PublicError {
     pub status: StatusCode,
     pub code: Cow<'static, str>,
     pub message: Cow<'static, str>,
+    // pub fields: Option<Vec<FieldError>>,
     pub additional_headers: Vec<(HeaderName, HeaderValue)>,
 }
 
@@ -47,6 +48,7 @@ impl PublicError {
             code: Cow::Borrowed(code),
             message: Cow::Borrowed(message),
             additional_headers: Vec::new(),
+            // fields: None,
         }
     }
 
@@ -60,6 +62,7 @@ impl PublicError {
             code: code.into(),
             message: message.into(),
             additional_headers: Vec::new(),
+            // fields: None,
         }
     }
 
@@ -74,6 +77,16 @@ impl PublicError {
             .push((name.try_into().unwrap(), value.try_into().unwrap()));
         self
     }
+
+    // pub fn with_validation(fields: &[FieldError]) -> Self {
+    //     Self {
+    //         status: StatusCode::UNPROCESSABLE_ENTITY,
+    //         code: Cow::Borrowed("validation-failed"),
+    //         message: Cow::Borrowed("Validation failed"),
+    //         fields: Some(fields.to_vec()),
+    //         additional_headers: Vec::new(),
+    //     }
+    // }
 }
 
 /// Errors that may have a public HTTP representation.
@@ -110,6 +123,7 @@ impl IntoResponse for ApiError {
                 let body = Json(ErrorResponse {
                     message: p.message.to_string(),
                     error: p.code.to_string(),
+                    // fields: None,
                 });
                 let mut res = (p.status, body).into_response();
                 for (name, value) in p.additional_headers {
@@ -207,4 +221,8 @@ pub struct ErrorResponse {
     /// and "Not Found".
     #[schema(examples("Bad Request", "Unauthorized", "Internal Server Error"))]
     pub error: String,
+    // A list of field-specific validation errors.
+    // #[schema(example = json!([]))]
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    // pub fields: Option<Vec<FieldError>>,
 }

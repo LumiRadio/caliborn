@@ -13,10 +13,19 @@ use crate::{
     realtime::Broadcaster,
     repositories::AlwaysCloneableConnection,
     services::{
-        admin::AdminCrudService, auth::AuthService, cans::CansService, cooldowns::CooldownService,
-        discord_linked_roles::LinkedRolesService, discord_oauth_tokens::TokenStore,
-        economy::EconomyService, minigames::MinigameService, permissions::PermissionService,
-        secrets::TokenSealer, songs::SongService, stream::StreamService, users::UserService,
+        admin::{AdminCrudService, registry::AdminRegistry},
+        auth::AuthService,
+        cans::CansService,
+        cooldowns::CooldownService,
+        discord_linked_roles::LinkedRolesService,
+        discord_oauth_tokens::TokenStore,
+        economy::EconomyService,
+        minigames::MinigameService,
+        permissions::PermissionService,
+        secrets::TokenSealer,
+        songs::SongService,
+        stream::StreamService,
+        users::UserService,
     },
 };
 
@@ -110,6 +119,7 @@ pub struct ServiceRegistry {
 
     // services
     admin_service: CachedService<AdminCrudService>,
+    admin_registry: CachedService<AdminRegistry>,
     auth_service: CachedService<AuthService>,
     economy_service: CachedService<EconomyService>,
     user_service: CachedService<UserService>,
@@ -153,6 +163,7 @@ impl ServiceRegistry {
             linked_roles_service: CachedService::new(),
             token_store: CachedService::new(),
             permission_service: CachedService::new(),
+            admin_registry: CachedService::new(),
             liquidsoap_client,
             broadcaster,
             discord_application_id,
@@ -173,6 +184,11 @@ impl ServiceRegistry {
     pub fn admin_service(&self) -> Arc<AdminCrudService> {
         self.admin_service
             .get_or_init(|| AdminCrudService::new(&self.db))
+    }
+
+    pub fn admin_registry(&self) -> Arc<AdminRegistry> {
+        self.admin_registry
+            .get_or_init(|| crate::services::admin::registry::build_registry(&self.db))
     }
 
     pub fn auth_service(&self) -> Arc<AuthService> {

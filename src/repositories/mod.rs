@@ -4,16 +4,19 @@ use sea_orm::{
     ActiveModelTrait, ConnectionTrait, DatabaseConnection, DeleteMany, EntityTrait,
     IntoActiveModel, PaginatorTrait, PrimaryKeyTrait, Select,
 };
+use serde::Deserialize;
 
 use crate::dtos::page::Page;
 
 pub mod cans;
+pub mod connected_youtube_accounts;
 pub mod cooldowns;
 pub mod favourite_songs;
 pub mod permissions;
 pub mod roles;
 pub mod server_channel_config;
 pub mod server_config;
+pub mod slcb;
 pub mod song_history;
 pub mod song_requests;
 pub mod songs;
@@ -116,6 +119,9 @@ impl<E: std::error::Error + Send + Sync + 'static> From<sea_orm::TransactionErro
     }
 }
 
+#[derive(Deserialize)]
+pub struct NoDto;
+
 #[async_trait::async_trait]
 pub trait ApplyQueryFilter<E>
 where
@@ -141,6 +147,10 @@ where
 
 pub trait ApplyUpdates<T> {
     fn apply_to(self, target: &mut T);
+}
+
+impl<T> ApplyUpdates<T> for NoDto {
+    fn apply_to(self, _target: &mut T) {}
 }
 
 pub struct BaseRepository<E> {
@@ -316,49 +326,78 @@ where
 macro_rules! generate_dtos {
     (
         $entity:ty,
+        $(#[$create_meta:meta])*
         $create_name:ident {
-            $($create_field:ident: $create_type:ty $(=> $create_column:ident)?),* $(,)?
+            $(
+                $(#[$cf_meta:meta])*
+                $create_field:ident: $create_type:ty $(=> $create_column:ident)?
+            ),* $(,)?
         }
+        $(,)?
     ) => {
-        #[derive(Debug, Clone)]
+        $(#[$create_meta])*
+        #[derive(Debug, Clone, serde::Deserialize)]
         pub struct $create_name {
-            $(pub $create_field: $create_type,)*
+            $(
+                $(#[$cf_meta])*
+                pub $create_field: $create_type,
+            )*
         }
 
         impl sea_orm::IntoActiveModel<<$entity as sea_orm::EntityTrait>::ActiveModel> for $create_name {
             fn into_active_model(self) -> <$entity as sea_orm::EntityTrait>::ActiveModel {
-                let mut active_model = <<$entity as sea_orm::EntityTrait>::ActiveModel as Default>::default();
-
+                let mut active_model =
+                    <<$entity as sea_orm::EntityTrait>::ActiveModel as Default>::default();
                 $(
-                    generate_dtos!(@set_create_field active_model, self.$create_field, $($create_column)?, $create_field);
+                    $crate::generate_dtos!(@set_create_field active_model, self.$create_field, $($create_column)?, $create_field);
                 )*
-
                 active_model
             }
         }
     };
+
     (
         $entity:ty,
+        $(#[$create_meta:meta])*
         $create_name:ident {
-            $($create_field:ident: $create_type:ty $(=> $create_column:ident)?),* $(,)?
+            $(
+                $(#[$cf_meta:meta])*
+                $create_field:ident: $create_type:ty $(=> $create_column:ident)?
+            ),* $(,)?
         },
+        $(#[$update_meta:meta])*
         $update_name:ident {
-            $($update_field:ident: $update_type:ty $(=> $update_column:ident)?),* $(,)?
+            $(
+                $(#[$uf_meta:meta])*
+                $update_field:ident: $update_type:ty $(=> $update_column:ident)?
+            ),* $(,)?
         }
+        $(,)?
     ) => {
-        generate_dtos!($entity, $create_name {
-            $($create_field: $create_type $(=> $create_column)?),*
-        });
+        $crate::generate_dtos!(
+            $entity,
+            $(#[$create_meta])*
+            $create_name {
+                $(
+                    $(#[$cf_meta])*
+                    $create_field: $create_type $(=> $create_column)?
+                ),*
+            }
+        );
 
-        #[derive(Debug, Clone, Default)]
+        $(#[$update_meta])*
+        #[derive(Debug, Clone, Default, serde::Deserialize)]
         pub struct $update_name {
-            $(pub $update_field: $update_type,)*
+            $(
+                $(#[$uf_meta])*
+                pub $update_field: $update_type,
+            )*
         }
 
-        impl crate::repositories::ApplyUpdates<<$entity as sea_orm::EntityTrait>::ActiveModel> for $update_name {
+        impl $crate::repositories::ApplyUpdates<<$entity as sea_orm::EntityTrait>::ActiveModel> for $update_name {
             fn apply_to(self, active_model: &mut <$entity as sea_orm::EntityTrait>::ActiveModel) {
                 $(
-                    generate_dtos!(@set_update_field active_model, self.$update_field, $($update_column)?, $update_field);
+                    $crate::generate_dtos!(@set_update_field active_model, self.$update_field, $($update_column)?, $update_field);
                 )*
             }
         }
@@ -367,17 +406,14 @@ macro_rules! generate_dtos {
     (@set_create_field $active_model:ident, $value:expr, $column:ident, $field:ident) => {
         $active_model.$column = sea_orm::ActiveValue::set($value);
     };
-
     (@set_create_field $active_model:ident, $value:expr, , $field:ident) => {
         $active_model.$field = sea_orm::ActiveValue::set($value);
     };
-
     (@set_update_field $active_model:ident, $value:expr, $column:ident, $field:ident) => {
         if let Some(val) = $value {
             $active_model.$column = sea_orm::ActiveValue::set(val);
         }
     };
-
     (@set_update_field $active_model:ident, $value:expr, , $field:ident) => {
         if let Some(val) = $value {
             $active_model.$field = sea_orm::ActiveValue::set(val);
