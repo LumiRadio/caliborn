@@ -54,7 +54,8 @@ fn check_token(headers: &HeaderMap, configured: &str) -> Result<(), ApiError> {
         (status = 401, description = "Missing or invalid token", body = ErrorResponse),
         (status = 422, body = ErrorResponse),
         (status = 500, body = ErrorResponse)
-    )
+    ),
+    security(("liquidsoap_ingest" = []))
 )]
 #[axum::debug_handler]
 pub async fn played(

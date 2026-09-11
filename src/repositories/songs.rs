@@ -1,7 +1,11 @@
 use sea_orm::{QueryOrder, QuerySelect, prelude::*};
+use sea_query::extension::postgres::PgExpr;
 
 use crate::{
-    dtos::page::{Page, PaginationParams},
+    dtos::{
+        page::{Page, PaginationParams},
+        songs::SearchParams,
+    },
     entities, generate_dtos,
     pg_extension::TsQueryTrait,
     repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
@@ -91,17 +95,15 @@ generate_dtos!(
     }
 );
 
-enum OrderBy {
-    FilePath,
+pub enum OrderBy {
     Title,
     Artist,
     Album,
     Duration,
-    FileHash,
     Bitrate,
 }
 
-enum OrderDirection {
+pub enum OrderDirection {
     Asc,
     Desc,
 }
@@ -112,9 +114,11 @@ pub struct SongFilter {
     title: Option<String>,
     artist: Option<String>,
     album: Option<String>,
-    duration: Option<f64>,
+    duration_min: Option<f64>,
+    duration_max: Option<f64>,
     file_hash: Option<String>,
-    bitrate: Option<i32>,
+    bitrate_min: Option<i32>,
+    bitrate_max: Option<i32>,
     page: Option<u64>,
     page_size: Option<u64>,
     search: Option<String>,
@@ -148,8 +152,13 @@ impl SongFilter {
         self
     }
 
-    pub fn duration(mut self, duration: f64) -> Self {
-        self.duration = Some(duration);
+    pub fn duration_min(mut self, duration_min: f64) -> Self {
+        self.duration_min = Some(duration_min);
+        self
+    }
+
+    pub fn duration_max(mut self, duration_max: f64) -> Self {
+        self.duration_max = Some(duration_max);
         self
     }
 
@@ -158,8 +167,13 @@ impl SongFilter {
         self
     }
 
-    pub fn bitrate(mut self, bitrate: i32) -> Self {
-        self.bitrate = Some(bitrate);
+    pub fn bitrate_min(mut self, bitrate_min: i32) -> Self {
+        self.bitrate_min = Some(bitrate_min);
+        self
+    }
+
+    pub fn bitrate_max(mut self, bitrate_max: i32) -> Self {
+        self.bitrate_max = Some(bitrate_max);
         self
     }
 
@@ -186,6 +200,44 @@ impl SongFilter {
     pub fn favourited_by(mut self, user_id: i64) -> Self {
         self.favourited_by = Some(user_id);
         self
+    }
+}
+
+impl From<(&SearchParams, &PaginationParams)> for SongFilter {
+    fn from((params, pagination): (&SearchParams, &PaginationParams)) -> Self {
+        let order_by = params.sort_by.as_ref().map(|sort_by| match sort_by {
+            crate::dtos::songs::OrderBy::Title => OrderBy::Title,
+            crate::dtos::songs::OrderBy::Artist => OrderBy::Artist,
+            crate::dtos::songs::OrderBy::Album => OrderBy::Album,
+            crate::dtos::songs::OrderBy::Duration => OrderBy::Duration,
+            crate::dtos::songs::OrderBy::Bitrate => OrderBy::Bitrate,
+        });
+
+        let order_direction =
+            params
+                .sort_direction
+                .as_ref()
+                .map(|sort_direction| match sort_direction {
+                    crate::dtos::songs::OrderDirection::Asc => OrderDirection::Asc,
+                    crate::dtos::songs::OrderDirection::Desc => OrderDirection::Desc,
+                });
+
+        Self {
+            search: params.query.clone(),
+            artist: params.artist.clone(),
+            album: params.album.clone(),
+            title: params.title.clone(),
+            duration_min: params.duration_min,
+            duration_max: params.duration_max,
+            bitrate_min: params.bitrate_min,
+            bitrate_max: params.bitrate_max,
+            favourited_by: params.favourited_by,
+            order_by,
+            order_direction,
+            page: Some(pagination.page),
+            page_size: Some(pagination.page_size),
+            ..Default::default()
+        }
     }
 }
 
@@ -221,27 +273,69 @@ impl ApplyQueryFilter<entities::songs::Entity> for SongFilter {
         }
 
         if let Some(title) = &self.title {
-            query = query.filter(entities::songs::Column::Title.eq(title));
+            query = query
+                .filter(Expr::col(entities::songs::Column::Title).ilike(&format!("%{title}%")));
         }
 
         if let Some(artist) = &self.artist {
-            query = query.filter(entities::songs::Column::Artist.eq(artist));
+            query = query
+                .filter(Expr::col(entities::songs::Column::Artist).ilike(&format!("%{artist}%")));
         }
 
         if let Some(album) = &self.album {
-            query = query.filter(entities::songs::Column::Album.eq(album));
+            query = query
+                .filter(Expr::col(entities::songs::Column::Album).ilike(&format!("%{album}%")));
         }
 
-        if let Some(duration) = self.duration {
-            query = query.filter(entities::songs::Column::Duration.eq(duration));
+        if let Some(duration_min) = self.duration_min {
+            query = query.filter(entities::songs::Column::Duration.gte(duration_min));
+        }
+
+        if let Some(duration_max) = self.duration_max {
+            query = query.filter(entities::songs::Column::Duration.lte(duration_max));
         }
 
         if let Some(file_hash) = &self.file_hash {
             query = query.filter(entities::songs::Column::FileHash.eq(file_hash));
         }
 
-        if let Some(bitrate) = self.bitrate {
-            query = query.filter(entities::songs::Column::Bitrate.eq(bitrate));
+        if let Some(bitrate_min) = self.bitrate_min {
+            query = query.filter(entities::songs::Column::Bitrate.gte(bitrate_min));
+        }
+
+        if let Some(bitrate_max) = self.bitrate_max {
+            query = query.filter(entities::songs::Column::Bitrate.lte(bitrate_max));
+        }
+
+        if let Some(order_by) = &self.order_by {
+            let order_direction = self
+                .order_direction
+                .as_ref()
+                .unwrap_or(&OrderDirection::Asc);
+            query = match order_by {
+                OrderBy::Title => match order_direction {
+                    OrderDirection::Asc => query.order_by_asc(entities::songs::Column::Title),
+                    OrderDirection::Desc => query.order_by_desc(entities::songs::Column::Title),
+                },
+                OrderBy::Artist => match order_direction {
+                    OrderDirection::Asc => query.order_by_asc(entities::songs::Column::Artist),
+                    OrderDirection::Desc => query.order_by_desc(entities::songs::Column::Artist),
+                },
+                OrderBy::Album => match order_direction {
+                    OrderDirection::Asc => query.order_by_asc(entities::songs::Column::Album),
+                    OrderDirection::Desc => query.order_by_desc(entities::songs::Column::Album),
+                },
+                OrderBy::Duration => match order_direction {
+                    OrderDirection::Asc => query.order_by_asc(entities::songs::Column::Duration),
+                    OrderDirection::Desc => query.order_by_desc(entities::songs::Column::Duration),
+                },
+                OrderBy::Bitrate => match order_direction {
+                    OrderDirection::Asc => query.order_by_asc(entities::songs::Column::Bitrate),
+                    OrderDirection::Desc => query.order_by_desc(entities::songs::Column::Bitrate),
+                },
+            };
+        } else {
+            query = query.order_by_asc(entities::songs::Column::Title);
         }
 
         query

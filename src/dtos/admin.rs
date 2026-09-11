@@ -1,16 +1,10 @@
 //! Admin API DTOs.
 
-use std::str::FromStr;
-
 use chrono::{DateTime, NaiveDateTime, Utc};
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
-use crate::{
-    dtos::error::{PublicError, ToPublicError},
-    entities,
-};
+use crate::entities;
 
 #[derive(Serialize, ToSchema)]
 pub struct AdminUserDto {

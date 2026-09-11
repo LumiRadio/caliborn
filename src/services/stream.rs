@@ -145,7 +145,7 @@ impl StreamService {
     ///
     /// Inserts a row into `played_songs`, increments `songs.played` (best-effort
     /// — silently no-ops if the file is not in the library), and publishes a
-    /// `NowPlaying` event on the broadcaster.
+    /// `NowPlaying` event on the broadcaster, if the insert was successful.
     pub async fn record_played(
         &self,
         file_path: &str,
@@ -155,7 +155,7 @@ impl StreamService {
     ) -> Result<DateTime<Utc>, StreamServiceError> {
         let played_at = Utc::now();
 
-        entities::played_songs::Entity::insert(entities::played_songs::ActiveModel {
+        let insert = entities::played_songs::Entity::insert(entities::played_songs::ActiveModel {
             song_id: ActiveValue::set(file_path.to_string()),
             played_at: ActiveValue::set(played_at.naive_utc()),
             ..Default::default()
@@ -172,13 +172,15 @@ impl StreamService {
             .exec(&*self.db)
             .await?;
 
-        self.broadcaster.send(Event::NowPlaying {
-            file_path: file_path.to_string(),
-            title,
-            artist,
-            album,
-            played_at,
-        });
+        if insert.last_insert_id > 0 {
+            self.broadcaster.send(Event::NowPlaying {
+                file_path: file_path.to_string(),
+                title,
+                artist,
+                album,
+                played_at,
+            });
+        }
 
         Ok(played_at)
     }

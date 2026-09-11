@@ -108,10 +108,27 @@ pub struct SongRequest {
     pub file_hash: String,
 }
 
-#[derive(Deserialize, IntoParams)]
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderBy {
+    Title,
+    Artist,
+    Album,
+    Duration,
+    Bitrate,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderDirection {
+    Asc,
+    Desc,
+}
+
+#[derive(Deserialize, IntoParams, Default)]
 #[into_params(parameter_in = Query)]
 pub struct SearchParams {
-    pub query: String,
+    pub query: Option<String>,
 
     #[serde(rename = "filter[artist]")]
     pub artist: Option<String>,
@@ -121,17 +138,42 @@ pub struct SearchParams {
 
     #[serde(rename = "filter[title]")]
     pub title: Option<String>,
+
+    #[serde(rename = "filter[duration_min]")]
+    pub duration_min: Option<f64>,
+
+    #[serde(rename = "filter[duration_max]")]
+    pub duration_max: Option<f64>,
+
+    #[serde(rename = "filter[bitrate_min]")]
+    pub bitrate_min: Option<i32>,
+
+    #[serde(rename = "filter[bitrate_max]")]
+    pub bitrate_max: Option<i32>,
+
+    #[serde(rename = "filter[favourited_by]")]
+    pub favourited_by: Option<i64>,
+
+    #[serde(rename = "order[by]")]
+    #[param(inline)]
+    pub sort_by: Option<OrderBy>,
+
+    #[serde(rename = "order[direction]")]
+    #[param(inline)]
+    pub sort_direction: Option<OrderDirection>,
 }
 
 impl SearchParams {
-    pub fn as_ts_query(&self) -> String {
-        let query = to_tsvector(&self.query);
+    pub fn as_ts_query(&self) -> Option<String> {
+        self.query.as_ref().map(|q| {
+            let query = to_tsvector(q);
 
-        query
-            .lexemes
-            .iter()
-            .map(|lexeme| format!("{}:*", lexeme.term))
-            .collect::<Vec<_>>()
-            .join(" & ")
+            query
+                .lexemes
+                .iter()
+                .map(|lexeme| format!("{}:*", lexeme.term))
+                .collect::<Vec<_>>()
+                .join(" & ")
+        })
     }
 }

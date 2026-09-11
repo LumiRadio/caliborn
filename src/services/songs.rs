@@ -104,11 +104,9 @@ impl ToPublicError for SongServiceError {
 pub struct SongService {
     // repositories
     song_repo: BaseRepository<entities::songs::Entity>,
-    user_repo: BaseRepository<entities::users::Entity>,
     song_request_repo: BaseRepository<entities::song_requests::Entity>,
     song_history_repo: BaseRepository<entities::played_songs::Entity>,
     favourite_song_repo: BaseRepository<entities::favourite_songs::Entity>,
-    tags_repo: BaseRepository<entities::song_tags::Entity>,
 
     // services
     user_service: Arc<UserService>,
@@ -125,11 +123,9 @@ impl SongService {
     ) -> Self {
         Self {
             song_repo: BaseRepository::new(db),
-            user_repo: BaseRepository::new(db),
             song_request_repo: BaseRepository::new(db),
             song_history_repo: BaseRepository::new(db),
             favourite_song_repo: BaseRepository::new(db),
-            tags_repo: BaseRepository::new(db),
             user_service: registry.user_service(),
             cooldown_service: registry.cooldown_service(),
             liquidsoap_client,
@@ -253,21 +249,7 @@ impl SongService {
         params: &SearchParams,
         pagination: &PaginationParams,
     ) -> Result<Page<SongDto>, SongServiceError> {
-        let mut filter = SongFilter::new()
-            .search(&params.query)
-            .page(pagination.page)
-            .page_size(pagination.page_size);
-        if let Some(artist) = &params.artist {
-            filter = filter.artist(artist);
-        }
-
-        if let Some(album) = &params.album {
-            filter = filter.album(album);
-        }
-
-        if let Some(title) = &params.title {
-            filter = filter.title(title);
-        }
+        let filter: SongFilter = (params, pagination).into();
 
         self.song_repo
             .browse(filter)
@@ -278,26 +260,10 @@ impl SongService {
 
     pub async fn search_favourite_songs(
         &self,
-        user_id: UserId,
         params: &SearchParams,
         pagination: &PaginationParams,
     ) -> Result<Page<SongDto>, SongServiceError> {
-        let mut filter = SongFilter::new()
-            .search(&params.query)
-            .page(pagination.page)
-            .page_size(pagination.page_size)
-            .favourited_by(user_id.into());
-        if let Some(artist) = &params.artist {
-            filter = filter.artist(artist);
-        }
-
-        if let Some(album) = &params.album {
-            filter = filter.album(album);
-        }
-
-        if let Some(title) = &params.title {
-            filter = filter.title(title);
-        }
+        let filter: SongFilter = (params, pagination).into();
 
         self.song_repo
             .browse(filter)

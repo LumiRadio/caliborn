@@ -1,6 +1,6 @@
 use utoipa::{
     Modify, OpenApi,
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    openapi::security::{ApiKey, ApiKeyValue, HttpAuthScheme, HttpBuilder, SecurityScheme},
 };
 
 struct DiscordAuthAddon;
@@ -39,9 +39,25 @@ impl Modify for UserApiKeyAddon {
     }
 }
 
+struct LiquidsoapIngestAddon;
+
+impl Modify for LiquidsoapIngestAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "liquidsoap_ingest",
+                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::with_description(
+                    "x-liquidsoap-token",
+                    "The Liquidsoap ingest token",
+                ))),
+            );
+        }
+    }
+}
+
 #[derive(OpenApi)]
 #[openapi(
-    modifiers(&DiscordAuthAddon, &UserApiKeyAddon),
+    modifiers(&DiscordAuthAddon, &UserApiKeyAddon, &LiquidsoapIngestAddon),
     paths(
         crate::routes::auth::discord_login,
         crate::routes::bears::add_bear,

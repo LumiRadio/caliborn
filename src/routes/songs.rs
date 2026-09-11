@@ -142,7 +142,7 @@ pub async fn search_favourite_songs(
         .await?;
 
     song_service
-        .search_favourite_songs(actor.user_id(), &params, &pagination)
+        .search_favourite_songs(&params, &pagination)
         .await
         .map_err(Into::into)
         .map(|page| page.map(|song| song.into()))

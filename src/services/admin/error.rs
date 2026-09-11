@@ -1,6 +1,4 @@
 use reqwest::StatusCode;
-use serde::Serialize;
-use utoipa::ToSchema;
 
 use crate::{
     RepositoryError,

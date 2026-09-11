@@ -2839,7 +2839,7 @@
           {
             "name": "query",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -2866,6 +2866,67 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "filter[duration_min]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "filter[duration_max]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "filter[bitrate_min]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "filter[bitrate_max]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "filter[favourited_by]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "order[by]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OrderBy"
+            }
+          },
+          {
+            "name": "order[direction]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OrderDirection"
             }
           },
           {
@@ -3121,7 +3182,7 @@
           {
             "name": "query",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -3148,6 +3209,67 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "filter[duration_min]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "filter[duration_max]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "filter[bitrate_min]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "filter[bitrate_max]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "filter[favourited_by]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "order[by]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OrderBy"
+            }
+          },
+          {
+            "name": "order[direction]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OrderDirection"
             }
           },
           {
