@@ -32,7 +32,8 @@ use crate::{
     responses(
         (status = 200, description = "Current bear count was successfully retrieved", body = CanCountDto),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"}))
-    )
+    ),
+    tags = ["Minigames", "Bears"],
 )]
 pub async fn get_bear_count(
     AuthenticatedUser(actor): AuthenticatedUser,
@@ -70,7 +71,8 @@ pub async fn get_bear_count(
     security(
         ("user_jwt" = []),
         ("user_api_key" = [])
-    )
+    ),
+    tags = ["Minigames", "Bears"]
 )]
 pub async fn add_bear(
     AuthenticatedUser(actor): AuthenticatedUser,

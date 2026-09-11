@@ -29,6 +29,7 @@ use crate::{
         (status = 404, description = "Unknown resource", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
+    tags = ["Admin", "CRUD"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 pub async fn list(
@@ -61,6 +62,7 @@ pub async fn list(
         (status = 400, description = "Id could not be parsed into the resource's key type", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
+    tags = ["Admin", "CRUD"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 pub async fn read(
@@ -87,6 +89,7 @@ pub async fn read(
         (status = 400, description = "Payload did not match the resource's create DTO", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
+    tags = ["Admin", "CRUD"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 pub async fn create(
@@ -114,6 +117,7 @@ pub async fn create(
         (status = 400, description = "Payload did not match the resource's update DTO, or the id was unparseable", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
+    tags = ["Admin", "CRUD"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 pub async fn edit(
@@ -140,6 +144,7 @@ pub async fn edit(
         (status = 400, description = "Id could not be parsed into the resource's key type", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
+    tags = ["Admin", "CRUD"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 pub async fn delete(
@@ -153,7 +158,7 @@ pub async fn delete(
     Ok(Json(()))
 }
 
-/// Column metadata for `resource` — drives generic admin form rendering.
+/// Column metadata for `resource`
 #[utoipa::path(
     get,
     path = "/admin/crud/{resource}/_schema",
@@ -165,6 +170,7 @@ pub async fn delete(
         (status = 404, description = "Unknown resource", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
+    tags = ["Admin", "CRUD"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 pub async fn schema(
@@ -187,6 +193,7 @@ pub async fn schema(
         (status = 403, description = "Caller lacks the `use_admin_crud` permission", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
+    tags = ["Admin", "CRUD"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 pub async fn meta(

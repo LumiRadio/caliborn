@@ -20,6 +20,7 @@ fn into_dto(r: LiquidsoapResponse) -> LiquidsoapResponseDto {
     }
 }
 
+/// Skip the currently playing track in the stream.
 #[utoipa::path(
     post,
     path = "/stream/skip",
@@ -29,7 +30,8 @@ fn into_dto(r: LiquidsoapResponse) -> LiquidsoapResponseDto {
         (status = 403, description = "Lacks manage_stream permission", body = ErrorResponse),
         (status = 502, description = "Liquidsoap socket error", body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Stream Management", "Liquidsoap"]
 )]
 #[axum::debug_handler]
 pub async fn skip(
@@ -45,6 +47,7 @@ pub async fn skip(
     Ok(into_dto(r))
 }
 
+/// Set the volume of the stream.
 #[utoipa::path(
     post,
     path = "/stream/volume",
@@ -56,7 +59,8 @@ pub async fn skip(
         (status = 422, body = ErrorResponse),
         (status = 502, body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Stream Management", "Liquidsoap"]
 )]
 #[axum::debug_handler]
 pub async fn volume(
@@ -77,6 +81,7 @@ pub async fn volume(
     Ok(into_dto(r))
 }
 
+/// Push a file onto the stream queue.
 #[utoipa::path(
     post,
     path = "/stream/queue/push",
@@ -88,7 +93,8 @@ pub async fn volume(
         (status = 422, body = ErrorResponse),
         (status = 502, body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Stream Management", "Liquidsoap"]
 )]
 #[axum::debug_handler]
 pub async fn queue_push(
@@ -109,6 +115,7 @@ pub async fn queue_push(
     Ok(into_dto(r))
 }
 
+/// Reload the stream playlist.
 #[utoipa::path(
     post,
     path = "/stream/playlist/reload",
@@ -118,7 +125,8 @@ pub async fn queue_push(
         (status = 403, body = ErrorResponse),
         (status = 502, body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Stream Management", "Liquidsoap"]
 )]
 #[axum::debug_handler]
 pub async fn playlist_reload(
@@ -138,6 +146,7 @@ pub async fn playlist_reload(
     Ok(into_dto(r))
 }
 
+/// Send a raw command to the stream.
 #[utoipa::path(
     post,
     path = "/stream/raw",
@@ -149,7 +158,8 @@ pub async fn playlist_reload(
         (status = 422, body = ErrorResponse),
         (status = 502, body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Stream Management", "Liquidsoap"]
 )]
 #[axum::debug_handler]
 pub async fn raw(

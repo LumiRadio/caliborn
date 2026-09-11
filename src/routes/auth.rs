@@ -27,7 +27,8 @@ use crate::{
         (status = 200, description = "Discord login was successful", body = UserToken),
         (status = 401, description = "An authorization error occurred (e.g. invalid authorization code)", body = ErrorResponse, example = json!({"message": "Invalid authorization code", "error": "Unauthorized"})),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"}))
-    )
+    ),
+    tags = ["Auth", "Discord"]
 )]
 #[axum::debug_handler]
 pub async fn discord_login(

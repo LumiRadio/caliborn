@@ -16,6 +16,7 @@ use crate::{
     services::auth::{AuthenticatedUser, authenticate},
 };
 
+/// Request a song to be queued for playback.
 #[utoipa::path(
     post,
     path = "/songs/request",
@@ -28,7 +29,8 @@ use crate::{
         (status = 429, description = "User or song is still on cooldown", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn request_song(
@@ -50,13 +52,15 @@ pub async fn request_song(
     Ok(song_with_cooldown)
 }
 
+/// Get the current song request queue.
 #[utoipa::path(
     get,
     path = "/songs/queue",
     responses(
         (status = 200, description = "Pending song requests, in play order", body = SongListDto),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
-    )
+    ),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn get_request_queue(
@@ -70,6 +74,7 @@ pub async fn get_request_queue(
         .map_err(Into::into)
 }
 
+/// Get the history of recently played songs.
 #[utoipa::path(
     get,
     path = "/songs/history",
@@ -77,7 +82,8 @@ pub async fn get_request_queue(
     responses(
         (status = 200, description = "Recently played songs, newest first", body = Page<SongDto>),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
-    )
+    ),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn get_song_history(
@@ -91,6 +97,7 @@ pub async fn get_song_history(
         .map_err(Into::into)
 }
 
+/// Search for songs in the library.
 #[utoipa::path(
     get,
     path = "/songs/search",
@@ -98,7 +105,8 @@ pub async fn get_song_history(
     responses(
         (status = 200, description = "Full-text search results over the song library", body = Page<SongDto>),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
-    )
+    ),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn search_song(
@@ -114,6 +122,7 @@ pub async fn search_song(
         .map(|page| page.map(|song| song.into()))
 }
 
+/// Search for songs in the library that are marked as favourites by the user.
 #[utoipa::path(
     get,
     path = "/songs/favourites",
@@ -124,7 +133,8 @@ pub async fn search_song(
         (status = 403, description = "Caller lacks the `use_bot` permission", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn search_favourite_songs(
@@ -148,6 +158,7 @@ pub async fn search_favourite_songs(
         .map(|page| page.map(|song| song.into()))
 }
 
+/// Get the song currently on air.
 #[utoipa::path(
     get,
     path = "/songs/current",
@@ -155,7 +166,8 @@ pub async fn search_favourite_songs(
         (status = 200, description = "The song currently on air", body = SongDto),
         (status = 404, description = "Nothing has been played yet", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
-    )
+    ),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn get_currently_playing(
@@ -168,6 +180,7 @@ pub async fn get_currently_playing(
         .map_err(Into::into)
 }
 
+/// Mark a song as a favourite for the user.
 #[utoipa::path(
     post,
     path = "/songs/favourite",
@@ -179,7 +192,8 @@ pub async fn get_currently_playing(
         (status = 404, description = "No song matches the given file hash", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn mark_song_as_favourite(
@@ -201,6 +215,7 @@ pub async fn mark_song_as_favourite(
         .map_err(Into::into)
 }
 
+/// Unmark a song as a favourite for the user.
 #[utoipa::path(
     delete,
     path = "/songs/favourite",
@@ -212,7 +227,8 @@ pub async fn mark_song_as_favourite(
         (status = 404, description = "No song matches the given file hash", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn unmark_song_as_favourite(
@@ -234,6 +250,7 @@ pub async fn unmark_song_as_favourite(
         .map_err(Into::into)
 }
 
+/// Mark the song currently on air as a favourite for the user.
 #[utoipa::path(
     post,
     path = "/songs/favourite/current",
@@ -244,7 +261,8 @@ pub async fn unmark_song_as_favourite(
         (status = 404, description = "Nothing has been played yet", body = ErrorResponse),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse),
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Songs"]
 )]
 #[axum::debug_handler]
 pub async fn mark_currently_playing_song_as_favourite(

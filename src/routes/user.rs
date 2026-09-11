@@ -16,6 +16,7 @@ use crate::{
     services::auth::{AuthenticatedUser, authenticate},
 };
 
+/// Get the authenticated user's information.
 #[utoipa::path(
     get,
     path = "/user/me",
@@ -27,7 +28,8 @@ use crate::{
     security(
         ("user_jwt" = []),
         ("user_api_key" = [])
-    )
+    ),
+    tags = ["Users"]
 )]
 #[axum::debug_handler]
 pub async fn me(
@@ -42,6 +44,7 @@ pub async fn me(
     Ok(user)
 }
 
+/// Transfer Boonbucks from the authenticated user to another user.
 #[utoipa::path(
     post,
     path = "/user/me/pay",
@@ -55,7 +58,8 @@ pub async fn me(
     security(
         ("user_jwt" = []),
         ("user_api_key" = [])
-    )
+    ),
+    tags = ["Economy", "Users"]
 )]
 #[axum::debug_handler]
 pub async fn pay(
@@ -75,6 +79,7 @@ pub async fn pay(
     })
 }
 
+/// Push the authenticated user's linked-role metadata to Discord.
 #[utoipa::path(
     post,
     path = "/user/me/sync-linked-role",
@@ -84,7 +89,8 @@ pub async fn pay(
         (status = 502, description = "Discord rejected the push or refresh", body = ErrorResponse),
         (status = 500, body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Discord", "Users"]
 )]
 #[axum::debug_handler]
 pub async fn sync_linked_role(
@@ -129,6 +135,7 @@ pub async fn sync_linked_role(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
+/// Get the authenticated user's aggregated profile.
 #[utoipa::path(
     get,
     path = "/user/me/profile",
@@ -137,7 +144,8 @@ pub async fn sync_linked_role(
         (status = 401, body = ErrorResponse),
         (status = 500, body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Users"]
 )]
 #[axum::debug_handler]
 pub async fn my_profile(
@@ -152,6 +160,7 @@ pub async fn my_profile(
     Ok(profile)
 }
 
+/// Get another user's aggregated profile by their user ID.
 #[utoipa::path(
     get,
     path = "/user/{id}/profile",
@@ -160,7 +169,8 @@ pub async fn my_profile(
         (status = 401, body = ErrorResponse),
         (status = 500, body = ErrorResponse)
     ),
-    security(("user_jwt" = []), ("user_api_key" = []))
+    security(("user_jwt" = []), ("user_api_key" = [])),
+    tags = ["Users"]
 )]
 #[axum::debug_handler]
 pub async fn user_profile(

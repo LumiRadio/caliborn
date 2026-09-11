@@ -20,6 +20,7 @@ use crate::{
     services::permissions::{ManageCooldowns, RequirePermission},
 };
 
+/// List cooldowns, optionally filtered by scope, user_id, or key.
 #[utoipa::path(
     get,
     path = "/admin/cooldowns",
@@ -29,6 +30,7 @@ use crate::{
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Cooldowns"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -71,6 +73,7 @@ pub async fn list_cooldowns(
     }))
 }
 
+/// Upsert a cooldown. If a cooldown with the same (scope, key, user_id) exists, it will be replaced.
 #[utoipa::path(
     post,
     path = "/admin/cooldowns",
@@ -80,6 +83,7 @@ pub async fn list_cooldowns(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Cooldowns"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -117,6 +121,7 @@ pub async fn upsert_cooldown(
     Ok((StatusCode::CREATED, Json(inserted.into())))
 }
 
+/// Delete a cooldown by its ID.
 #[utoipa::path(
     delete,
     path = "/admin/cooldowns/{id}",
@@ -125,6 +130,7 @@ pub async fn upsert_cooldown(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Cooldowns"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -141,6 +147,7 @@ pub async fn delete_cooldown(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Bulk clear cooldowns, optionally filtered by scope, user_id, or key.
 #[utoipa::path(
     delete,
     path = "/admin/cooldowns",
@@ -150,6 +157,7 @@ pub async fn delete_cooldown(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Cooldowns"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]

@@ -45,6 +45,10 @@ fn check_token(headers: &HeaderMap, configured: &str) -> Result<(), ApiError> {
     }
 }
 
+/// Record that a song has started playing.
+///
+/// This endpoint is only supposed to be called by Liquidsoap, and is authenticated via the
+/// `X-Liquidsoap-Token` header.
 #[utoipa::path(
     post,
     path = "/playback/played",
@@ -55,7 +59,8 @@ fn check_token(headers: &HeaderMap, configured: &str) -> Result<(), ApiError> {
         (status = 422, body = ErrorResponse),
         (status = 500, body = ErrorResponse)
     ),
-    security(("liquidsoap_ingest" = []))
+    security(("liquidsoap_ingest" = [])),
+    tags = ["Liquidsoap", "Playback"]
 )]
 #[axum::debug_handler]
 pub async fn played(

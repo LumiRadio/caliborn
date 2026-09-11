@@ -10,6 +10,7 @@ use crate::{
     services::auth::{AuthenticatedUser, authenticate},
 };
 
+/// Spin the slots machine with a specified bet amount for the authenticated user.
 #[utoipa::path(
     post,
     path = "/minigames/slots/spin",
@@ -24,7 +25,8 @@ use crate::{
     security(
         ("user_jwt" = []),
         ("user_api_key" = [])
-    )
+    ),
+    tags = ["Minigames", "Slots"]
 )]
 #[axum::debug_handler]
 pub async fn slots_spin(
@@ -37,6 +39,7 @@ pub async fn slots_spin(
     Ok(result)
 }
 
+/// Roll a dice for the authenticated user.
 #[utoipa::path(
     post,
     path = "/minigames/dice/roll",
@@ -50,7 +53,8 @@ pub async fn slots_spin(
     security(
         ("user_jwt" = []),
         ("user_api_key" = [])
-    )
+    ),
+    tags = ["Minigames", "Dice"]
 )]
 #[axum::debug_handler]
 pub async fn dice_roll(
@@ -62,6 +66,7 @@ pub async fn dice_roll(
     Ok(result)
 }
 
+/// Challenge another user to a PvP duel.
 #[utoipa::path(
     post,
     path = "/minigames/pvp",
@@ -76,7 +81,8 @@ pub async fn dice_roll(
     security(
         ("user_jwt" = []),
         ("user_api_key" = [])
-    )
+    ),
+    tags = ["Minigames", "PvP"]
 )]
 #[axum::debug_handler]
 pub async fn pvp_challenge(

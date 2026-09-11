@@ -5,6 +5,7 @@ use axum::{
 };
 use reqwest::StatusCode;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
+use sea_query::{Expr, extension::postgres::PgExpr};
 
 use crate::{
     AppState,
@@ -20,6 +21,7 @@ use crate::{
     services::permissions::{ManagePermissions, ManageUsers, RequirePermission},
 };
 
+/// List users, optionally filtered by query string.
 #[utoipa::path(
     get,
     path = "/admin/users",
@@ -29,6 +31,7 @@ use crate::{
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Users"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -47,7 +50,7 @@ pub async fn list_users(
             query = query.filter(entities::users::Column::Id.eq(id));
         } else {
             let pattern = format!("%{}%", q);
-            query = query.filter(entities::users::Column::Username.like(pattern));
+            query = query.filter(Expr::col(entities::users::Column::Username).ilike(pattern));
         }
     }
 
@@ -70,6 +73,7 @@ pub async fn list_users(
     }))
 }
 
+/// Get a single user by ID.
 #[utoipa::path(
     get,
     path = "/admin/users/{id}",
@@ -79,6 +83,7 @@ pub async fn list_users(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Users"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -102,6 +107,7 @@ pub async fn get_user(
     Ok(Json(user.into()))
 }
 
+/// Update a user by ID. Only fields present in the request body will be updated.
 #[utoipa::path(
     patch,
     path = "/admin/users/{id}",
@@ -112,6 +118,7 @@ pub async fn get_user(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Users"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -155,6 +162,7 @@ pub async fn patch_user(
     Ok(Json(updated.into()))
 }
 
+/// Get a user's permissions by ID.
 #[utoipa::path(
     get,
     path = "/admin/users/{id}/permissions",
@@ -164,6 +172,7 @@ pub async fn patch_user(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Users", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -205,6 +214,7 @@ pub async fn get_user_permissions(
     }))
 }
 
+/// Grant a permission to a user by ID.
 #[utoipa::path(
     put,
     path = "/admin/users/{id}/permissions/{perm}",
@@ -214,6 +224,7 @@ pub async fn get_user_permissions(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Users", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -230,6 +241,7 @@ pub async fn grant_user_permission(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Revoke a permission from a user by ID.
 #[utoipa::path(
     delete,
     path = "/admin/users/{id}/permissions/{perm}",
@@ -238,6 +250,7 @@ pub async fn grant_user_permission(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Users", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -254,6 +267,7 @@ pub async fn revoke_user_permission(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Set a user's role by ID.
 #[utoipa::path(
     put,
     path = "/admin/users/{id}/role",
@@ -264,6 +278,7 @@ pub async fn revoke_user_permission(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "Users", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]

@@ -47,13 +47,7 @@ fn unauthorized(message: &'static str) -> ApiError {
 
 /// Subscribe to the realtime event stream.
 ///
-/// This is a WebSocket endpoint. OpenAPI cannot describe a WebSocket session —
-/// 3.1 has no concept of one and 3.2 only added Server-Sent Events — so what is
-/// documented here is the **handshake**: the `GET` that upgrades, its
-/// query-param auth, and the `101` response. Once upgraded, the server pushes
-/// JSON-encoded [`crate::realtime::Event`] values (`now_playing`,
-/// `queue_updated`), discriminated by their `type` field, and never reads from
-/// the client except to answer pings.
+/// This is a WebSocket endpoint.
 #[utoipa::path(
     get,
     path = "/ws",
@@ -62,7 +56,8 @@ fn unauthorized(message: &'static str) -> ApiError {
         (status = 101, description = "Switching Protocols — the WebSocket session is open and will stream `realtime::Event` values as JSON text frames"),
         (status = 400, description = "Not a valid WebSocket upgrade request", body = crate::dtos::error::ErrorResponse),
         (status = 401, description = "Missing, duplicated, or invalid `token`/`apikey` query parameter", body = crate::dtos::error::ErrorResponse),
-    )
+    ),
+    tags = ["Realtime", "WebSocket"]
 )]
 pub async fn ws(
     Query(query): Query<WsQuery>,

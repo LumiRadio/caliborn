@@ -32,7 +32,8 @@ use crate::{
     responses(
         (status = 200, description = "Current can count was successfully retrieved", body = CanCountDto),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"}))
-    )
+    ),
+    tags = ["Minigames", "Cans"],
 )]
 pub async fn get_can_count(State(registry): State<ServiceRegistry>) -> CalibornResult<CanCountDto> {
     let can_service = registry.can_service();
@@ -61,7 +62,8 @@ pub async fn get_can_count(State(registry): State<ServiceRegistry>) -> CalibornR
     security(
         ("user_jwt" = []),
         ("user_api_key" = [])
-    )
+    ),
+    tags = ["Minigames", "Cans"],
 )]
 pub async fn add_can(
     AuthenticatedUser(actor): AuthenticatedUser,

@@ -19,6 +19,7 @@ use crate::{
     },
 };
 
+/// Import Streamlabs Chatbot records into the database.
 #[utoipa::path(
     post,
     path = "/admin/slcb/import",
@@ -28,6 +29,7 @@ use crate::{
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "SLCB"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -45,6 +47,7 @@ pub async fn import(
     }))
 }
 
+/// Match SLCB records to YouTube links in the database.
 #[utoipa::path(
     post,
     path = "/admin/slcb/match",
@@ -53,6 +56,7 @@ pub async fn import(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "SLCB"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -70,6 +74,7 @@ pub async fn run_match(
     }))
 }
 
+/// Force-link a user to a SLCB username.
 #[utoipa::path(
     post,
     path = "/admin/users/{id}/slcb-link",
@@ -82,6 +87,7 @@ pub async fn run_match(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "SLCB"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]

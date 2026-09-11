@@ -15,6 +15,7 @@ use crate::{
     services::permissions::{ManagePermissions, RequirePermission},
 };
 
+/// List all roles.
 #[utoipa::path(
     get,
     path = "/admin/roles",
@@ -23,6 +24,7 @@ use crate::{
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -38,6 +40,7 @@ pub async fn list_roles(
     Ok(Json(roles.into_iter().map(RoleDto::from).collect()))
 }
 
+/// Create a new role.
 #[utoipa::path(
     post,
     path = "/admin/roles",
@@ -48,6 +51,7 @@ pub async fn list_roles(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -64,6 +68,7 @@ pub async fn create_role(
     Ok((StatusCode::CREATED, Json(role.into())))
 }
 
+/// Delete a role by name.
 #[utoipa::path(
     delete,
     path = "/admin/roles/{name}",
@@ -74,6 +79,7 @@ pub async fn create_role(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -90,6 +96,7 @@ pub async fn delete_role(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// List all permissions attached to a role.
 #[utoipa::path(
     get,
     path = "/admin/roles/{name}/permissions",
@@ -99,6 +106,7 @@ pub async fn delete_role(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -115,6 +123,7 @@ pub async fn list_role_permissions(
     Ok(Json(perms.into_iter().map(|p| p.permission).collect()))
 }
 
+/// Attach a permission to a role.
 #[utoipa::path(
     put,
     path = "/admin/roles/{name}/permissions/{perm}",
@@ -124,6 +133,7 @@ pub async fn list_role_permissions(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -140,6 +150,7 @@ pub async fn attach_role_permission(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Detach a permission from a role.
 #[utoipa::path(
     delete,
     path = "/admin/roles/{name}/permissions/{perm}",
@@ -148,6 +159,7 @@ pub async fn attach_role_permission(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
@@ -164,6 +176,7 @@ pub async fn detach_role_permission(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// List all permissions in the system.
 #[utoipa::path(
     get,
     path = "/admin/permissions",
@@ -172,6 +185,7 @@ pub async fn detach_role_permission(
         (status = 401, body = ErrorResponse),
         (status = 403, body = ErrorResponse),
     ),
+    tags = ["Admin", "RBAC"],
     security(("user_jwt" = []), ("user_api_key" = []))
 )]
 #[axum::debug_handler]
