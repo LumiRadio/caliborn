@@ -6,6 +6,8 @@ pub mod auth;
 pub mod bears;
 /// Can routes
 pub mod cans;
+/// Health routes
+pub mod health;
 /// Minigame routes
 pub mod minigames;
 /// Inbound playback ingest (Liquidsoap → Caliborn)

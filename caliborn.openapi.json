@@ -4,7 +4,8 @@
     "title": "caliborn",
     "description": "API server for lumiRadio",
     "contact": {
-      "name": "cozygalvinism"
+      "name": "cozyGalvinism",
+      "email": "jean@der-capta.in"
     },
     "license": {
       "name": ""
@@ -2360,6 +2361,60 @@
         }
       }
     },
+    "/health/livez": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe.",
+        "description": "Always answers `200` while the process can serve requests. Never checks\ndependencies — restarting Caliborn would not fix a dependency outage.",
+        "operationId": "livez",
+        "responses": {
+          "200": {
+            "description": "The process is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/readyz": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Readiness probe.",
+        "description": "Pings the database pool. Answers `200` when every check passes and `503`\notherwise, so a load balancer can drain this instance.",
+        "operationId": "readyz",
+        "responses": {
+          "200": {
+            "description": "All dependency checks passed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "At least one dependency check failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/minigames/dice/roll": {
       "post": {
         "tags": [
@@ -4194,6 +4249,14 @@
           }
         ]
       },
+      "CheckStatus": {
+        "type": "string",
+        "description": "Outcome of a single dependency check.",
+        "enum": [
+          "ok",
+          "error"
+        ]
+      },
       "ConnectedYoutubeAccountDto": {
         "type": "object",
         "description": "A linked YouTube channel.",
@@ -4362,6 +4425,24 @@
         "examples": [
           {
             "response": "Done.\n"
+          }
+        ]
+      },
+      "LivenessDto": {
+        "type": "object",
+        "description": "Liveness response. The process is running and the router is serving.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "Always `ok` — a non-200 here means the process is gone, not degraded."
+          }
+        },
+        "examples": [
+          {
+            "status": "ok"
           }
         ]
       },
@@ -4923,6 +5004,45 @@
         "examples": [
           {
             "command": "request.skip"
+          }
+        ]
+      },
+      "ReadinessChecks": {
+        "type": "object",
+        "description": "The individual dependency checks `/health/readyz` performs.",
+        "required": [
+          "database"
+        ],
+        "properties": {
+          "database": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "Result of a `SELECT 1` against the Postgres pool."
+          }
+        }
+      },
+      "ReadinessDto": {
+        "type": "object",
+        "description": "Readiness response. `status` is `ok` only if every dependency check passed.",
+        "required": [
+          "status",
+          "checks"
+        ],
+        "properties": {
+          "checks": {
+            "$ref": "#/components/schemas/ReadinessChecks",
+            "description": "Per-dependency results."
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "Aggregate of `checks` — `ok` (200) or `error` (503)."
+          }
+        },
+        "examples": [
+          {
+            "checks": {
+              "database": "ok"
+            },
+            "status": "ok"
           }
         ]
       },

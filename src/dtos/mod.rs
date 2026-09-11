@@ -43,6 +43,7 @@ pub mod auth;
 pub mod cans;
 pub mod economy;
 pub mod error;
+pub mod health;
 pub mod minigames;
 pub mod page;
 pub mod profile;

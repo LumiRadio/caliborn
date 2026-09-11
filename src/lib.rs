@@ -146,6 +146,7 @@ pub fn make_app(
 pub fn router(app_state: AppState) -> axum::Router {
     Router::new()
         .nest("/auth", routes::auth::routes())
+        .nest("/health", routes::health::routes())
         .nest("/user", routes::user::routes(app_state.clone()))
         .nest("/cans", routes::cans::routes(app_state.clone()))
         .nest("/bears", routes::bears::routes(app_state.clone()))

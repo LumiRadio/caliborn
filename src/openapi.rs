@@ -64,6 +64,8 @@ impl Modify for LiquidsoapIngestAddon {
         crate::routes::bears::get_bear_count,
         crate::routes::cans::add_can,
         crate::routes::cans::get_can_count,
+        crate::routes::health::livez,
+        crate::routes::health::readyz,
         crate::routes::minigames::dice_roll,
         crate::routes::minigames::pvp_challenge,
         crate::routes::minigames::slots_spin,

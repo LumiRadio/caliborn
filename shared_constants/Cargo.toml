@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-once_cell = "1.21.3"
+once_cell = "1.21"
 sea-orm = "1.1"

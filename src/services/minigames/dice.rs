@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use rand::Rng;
+use rand::RngExt;
 use reqwest::StatusCode;
 use sea_orm::{ActiveValue, EntityTrait, Set};
 use serde::Serialize;

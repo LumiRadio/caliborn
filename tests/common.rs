@@ -280,6 +280,15 @@ pub struct ScenarioEnv {
 
 #[allow(dead_code)]
 impl ScenarioEnv {
+    /// Stop the backing Postgres container so the pool's next query fails.
+    /// Used to exercise degraded-dependency paths (e.g. the readiness probe).
+    pub async fn stop_database(&self) {
+        self._container
+            .stop()
+            .await
+            .expect("Failed to stop postgres container");
+    }
+
     pub async fn insert_user(&self, id: i64, boonbucks: i32, watched_time: i64) {
         entities::users::Entity::insert(entities::users::ActiveModel {
             id: ActiveValue::set(id),

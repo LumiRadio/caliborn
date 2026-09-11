@@ -15,10 +15,14 @@ RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path r
 COPY . .
 RUN cargo build --release --locked --target x86_64-unknown-linux-musl --bin caliborn
 
-FROM alpine:3.20 AS runtime
+FROM alpine:3.24 AS runtime
 RUN apk add --no-cache ca-certificates tini \
     && addgroup -S caliborn && adduser -S caliborn -G caliborn
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/caliborn /usr/local/bin/caliborn
 USER caliborn
 WORKDIR /home/caliborn
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8000/health/readyz || exit 1
+
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/caliborn"]
