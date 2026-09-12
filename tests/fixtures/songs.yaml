@@ -16,3 +16,21 @@
   duration: 1.0
   file_hash: "efgh5678"
   bitrate: 128000
+- file_path: "/song3.mp3"
+  title: "Back in Black"
+  artist: "AC/DC"
+  album: "Back in Black"
+  played: 0
+  requested: 0
+  duration: 1.0
+  file_hash: "ijkl9012"
+  bitrate: 128000
+- file_path: "/song4.mp3"
+  title: "Totally Unrelated Song Two"
+  artist: "Some Other Artist"
+  album: "Testing Hits"
+  played: 0
+  requested: 0
+  duration: 1.0
+  file_hash: "mnop3456"
+  bitrate: 128000

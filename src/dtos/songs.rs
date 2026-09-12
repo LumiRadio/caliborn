@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
-use crate::{dtos::json, entities, vectorizer::to_tsvector};
+use crate::{dtos::json, entities};
 
 #[derive(Deserialize, Serialize, ToSchema)]
 pub struct SongDto {
@@ -111,6 +111,7 @@ pub struct SongRequest {
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderBy {
+    Relevance,
     Title,
     Artist,
     Album,
@@ -161,19 +162,4 @@ pub struct SearchParams {
     #[serde(rename = "order[direction]")]
     #[param(inline)]
     pub sort_direction: Option<OrderDirection>,
-}
-
-impl SearchParams {
-    pub fn as_ts_query(&self) -> Option<String> {
-        self.query.as_ref().map(|q| {
-            let query = to_tsvector(q);
-
-            query
-                .lexemes
-                .iter()
-                .map(|lexeme| format!("{}:*", lexeme.term))
-                .collect::<Vec<_>>()
-                .join(" & ")
-        })
-    }
 }

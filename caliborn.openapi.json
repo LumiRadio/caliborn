@@ -2367,7 +2367,7 @@
           "Health"
         ],
         "summary": "Liveness probe.",
-        "description": "Always answers `200` while the process can serve requests. Never checks\ndependencies — restarting Caliborn would not fix a dependency outage.",
+        "description": "Always answers `200` while the process can serve requests.",
         "operationId": "livez",
         "responses": {
           "200": {
@@ -3049,6 +3049,7 @@
             "schema": {
               "type": "string",
               "enum": [
+                "relevance",
                 "title",
                 "artist",
                 "album",
@@ -3407,6 +3408,7 @@
             "schema": {
               "type": "string",
               "enum": [
+                "relevance",
                 "title",
                 "artist",
                 "album",

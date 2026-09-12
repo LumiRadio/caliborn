@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 async-std = { version = "1", features = ["attributes", "tokio1"] }
 shared_constants = { path = "../shared_constants" }
+pg_fts = { path = "../pg_fts" }
 
 [dependencies.sea-orm-migration]
 version = "2.0"

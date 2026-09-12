@@ -1,0 +1,9 @@
+[package]
+name = "pg_fts"
+description = "Postgres full-text search expressions and schema helpers for sea-query / SeaORM"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sea-query = { version = "1.0", features = ["backend-postgres", "derive"] }
+thiserror = "2.0"

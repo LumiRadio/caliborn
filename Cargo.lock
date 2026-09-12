@@ -795,11 +795,11 @@ dependencies = [
  "notify",
  "oauth2",
  "paste",
+ "pg_fts",
  "prefixed-api-key",
  "rand 0.10.2",
  "reqwest",
  "rstest",
- "rust-stemmers",
  "sea-orm",
  "serde",
  "serde_json",
@@ -807,7 +807,6 @@ dependencies = [
  "serenity",
  "sha2 0.10.9",
  "shared_constants",
- "stopwords",
  "subtle",
  "testcontainers",
  "testcontainers-modules",
@@ -2572,6 +2571,7 @@ name = "migration"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "pg_fts",
  "sea-orm-migration",
  "shared_constants",
 ]
@@ -2931,6 +2931,14 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+
+[[package]]
+name = "pg_fts"
+version = "0.1.0"
+dependencies = [
+ "sea-query",
+ "thiserror 2.0.20",
+]
 
 [[package]]
 name = "pgvector"
@@ -3484,16 +3492,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-stemmers"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e46a2036019fdb888131db7a4c847a1063a7493f971ed94ea82c67eada63ca54"
-dependencies = [
- "serde",
- "serde_derive",
-]
-
-[[package]]
 name = "rust_decimal"
 version = "1.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3798,6 +3796,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "546040c653a705e60ec65ecd3191a809603734bebbc225775916dea9ae409b31"
 dependencies = [
  "chrono",
+ "itoa",
  "ordered-float",
  "rust_decimal",
  "sea-query-derive",
@@ -4397,16 +4396,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "stopwords"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e4508a6e132e6ea159112d42ed1f29927460dd45a118eed298d7666c81b713e"
-dependencies = [
- "lazy_static",
- "thiserror 1.0.69",
-]
 
 [[package]]
 name = "stringprep"

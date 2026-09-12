@@ -52,7 +52,7 @@ impl LogConsumer for StdoutLogConsumer {
 }
 
 #[fixture]
-async fn db() -> (DatabaseConnection, ContainerAsync<Postgres>) {
+pub async fn db() -> (DatabaseConnection, ContainerAsync<Postgres>) {
     let container = testcontainers_modules::postgres::Postgres::default()
         .with_tag("12")
         .start()

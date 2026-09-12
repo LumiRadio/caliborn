@@ -1,3 +1,4 @@
+use pg_fts::{FtsExprTrait, TsConfig, TsQuery};
 use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::{QueryOrder, QuerySelect, prelude::*};
 
@@ -7,9 +8,7 @@ use crate::{
         songs::SearchParams,
     },
     entities, generate_dtos,
-    pg_extension::TsQueryTrait,
     repositories::{ApplyQueryFilter, BaseRepository, RepositoryError},
-    vectorizer::to_tsvector,
 };
 
 /// A trait representing a repository for songs.
@@ -96,6 +95,7 @@ generate_dtos!(
 );
 
 pub enum OrderBy {
+    Relevance,
     Title,
     Artist,
     Album,
@@ -206,6 +206,7 @@ impl SongFilter {
 impl From<(&SearchParams, &PaginationParams)> for SongFilter {
     fn from((params, pagination): (&SearchParams, &PaginationParams)) -> Self {
         let order_by = params.sort_by.as_ref().map(|sort_by| match sort_by {
+            crate::dtos::songs::OrderBy::Relevance => OrderBy::Relevance,
             crate::dtos::songs::OrderBy::Title => OrderBy::Title,
             crate::dtos::songs::OrderBy::Artist => OrderBy::Artist,
             crate::dtos::songs::OrderBy::Album => OrderBy::Album,
@@ -241,6 +242,16 @@ impl From<(&SearchParams, &PaginationParams)> for SongFilter {
     }
 }
 
+fn tsvector_column() -> (
+    entities::songs_fulltext::Entity,
+    entities::songs_fulltext::Column,
+) {
+    (
+        entities::songs_fulltext::Entity,
+        entities::songs_fulltext::Column::Tsvector,
+    )
+}
+
 #[async_trait::async_trait]
 impl ApplyQueryFilter<entities::songs::Entity> for SongFilter {
     async fn apply(
@@ -250,16 +261,12 @@ impl ApplyQueryFilter<entities::songs::Entity> for SongFilter {
         let mut query = query;
 
         if let Some(search) = &self.search {
-            let ts_vec = to_tsvector(search);
-            let ts_query = ts_vec
-                .lexemes
-                .iter()
-                .map(|lexeme| format!("{}:*", lexeme.term))
-                .collect::<Vec<_>>()
-                .join(" & ");
-            query = query
-                .inner_join(entities::songs_fulltext::Entity)
-                .filter(entities::songs_fulltext::Column::Tsvector.full_text_search(ts_query));
+            query = query.inner_join(entities::songs_fulltext::Entity).filter(
+                tsvector_column().fts_matches(&TsQuery::websearch_prefix(
+                    TsConfig::ENGLISH,
+                    search.clone(),
+                )),
+            );
         }
 
         if let Some(favourited_by) = self.favourited_by {
@@ -313,6 +320,17 @@ impl ApplyQueryFilter<entities::songs::Entity> for SongFilter {
                 .as_ref()
                 .unwrap_or(&OrderDirection::Asc);
             query = match order_by {
+                OrderBy::Relevance => match &self.search {
+                    Some(search) => {
+                        let rank = TsQuery::websearch_prefix(TsConfig::ENGLISH, search.clone())
+                            .rank(tsvector_column());
+                        match self.order_direction {
+                            Some(OrderDirection::Asc) => query.order_by_asc(rank),
+                            _ => query.order_by_desc(rank),
+                        }
+                    }
+                    None => query.order_by_asc(entities::songs::Column::Title),
+                },
                 OrderBy::Title => match order_direction {
                     OrderDirection::Asc => query.order_by_asc(entities::songs::Column::Title),
                     OrderDirection::Desc => query.order_by_desc(entities::songs::Column::Title),

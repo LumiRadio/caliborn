@@ -1,4 +1,5 @@
-use caliborn::{dtos::songs::SearchParams, entities, pg_extension::TsQueryTrait};
+use caliborn::{dtos::songs::SearchParams, entities};
+use pg_fts::{FtsExprTrait, TsConfig, TsQuery};
 use sea_orm::{EntityTrait, QueryFilter, QueryTrait};
 
 fn main() {
@@ -10,11 +11,16 @@ fn main() {
         ..Default::default()
     };
 
+    let ts_query = TsQuery::websearch_prefix(TsConfig::ENGLISH, search_params.query.unwrap());
+
     let query = entities::songs::Entity::find()
         .inner_join(entities::songs_fulltext::Entity)
         .filter(
-            entities::songs_fulltext::Column::Tsvector
-                .full_text_search(search_params.as_ts_query().unwrap()),
+            (
+                entities::songs_fulltext::Entity,
+                entities::songs_fulltext::Column::Tsvector,
+            )
+                .fts_matches(&ts_query),
         )
         .build(sea_orm::DatabaseBackend::Postgres);
 

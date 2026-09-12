@@ -32,7 +32,6 @@ pub mod entities;
 pub mod fixtures;
 pub mod liquidsoap;
 pub mod maintenance;
-pub mod pg_extension;
 /// Realtime fan-out (WebSocket events).
 pub mod realtime;
 /// Database repositories for accessing the database.
@@ -41,8 +40,6 @@ pub mod repositories;
 pub mod routes;
 /// Services for business logic.
 pub mod services;
-/// Vectorizer for full-text search.
-pub mod vectorizer;
 
 /// A type alias for a Discord OAuth client, which doesn't need authorization, but only the code exchange.
 pub type DiscordOAuthClient = oauth2::basic::BasicClient<
