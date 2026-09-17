@@ -151,6 +151,7 @@ pub fn router(app_state: AppState) -> axum::Router {
         .nest("/stream", routes::stream::routes(app_state.clone()))
         .nest("/playback", routes::playback::routes())
         .nest("/admin", routes::admin::routes(app_state.clone()))
+        .nest("/bot", routes::bot::routes(app_state.clone()))
         .merge(routes::ws::routes())
         .merge(SwaggerUi::new("/swagger").url("/openapi.json", ApiDoc::openapi()))
         .with_state(app_state)

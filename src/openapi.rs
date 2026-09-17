@@ -62,6 +62,7 @@ impl Modify for LiquidsoapIngestAddon {
         crate::routes::auth::discord_login,
         crate::routes::bears::add_bear,
         crate::routes::bears::get_bear_count,
+        crate::routes::bot::update_username,
         crate::routes::cans::add_can,
         crate::routes::cans::get_can_count,
         crate::routes::health::livez,

@@ -2203,6 +2203,20 @@
               }
             }
           },
+          "429": {
+            "description": "There is currently a cooldown active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "bear-cooldown",
+                  "message": "<random message>"
+                }
+              }
+            }
+          },
           "500": {
             "description": "An internal server error occurred",
             "content": {
@@ -2265,6 +2279,46 @@
         }
       }
     },
+    "/bot/update_username": {
+      "post": {
+        "tags": [
+          "Bot"
+        ],
+        "summary": "Updates a user's username.",
+        "description": "Despite the OpenAPI documentation, this endpoint is authenticated\nand requires a valid HMAC signature in the request headers.",
+        "operationId": "update_username",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "query",
+            "description": "The new username to set for the user.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Username updated successfully"
+          },
+          "500": {
+            "description": "An internal server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error",
+                  "message": "Internal server error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/cans/add": {
       "post": {
         "tags": [
@@ -2295,6 +2349,20 @@
                 "example": {
                   "error": "Unauthorized",
                   "message": "Invalid access token"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "There is currently a cooldown active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "can-cooldown",
+                  "message": "<random message>"
                 }
               }
             }
@@ -4233,20 +4301,48 @@
           }
         }
       },
-      "CanCountDto": {
+      "CanCooldownInfo": {
         "type": "object",
         "required": [
-          "count"
+          "cooldown"
         ],
         "properties": {
-          "count": {
+          "cooldown": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           }
-        },
+        }
+      },
+      "CanCountDto": {
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CanCooldownInfo"
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "count"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ],
         "examples": [
           {
+            "cooldown": 35,
             "count": 10
           }
         ]

@@ -1,7 +1,7 @@
 use std::{fmt::Display, sync::Arc};
 
-use chrono::Utc;
-use reqwest::StatusCode;
+use chrono::{TimeDelta, Utc};
+use reqwest::{StatusCode, header::RETRY_AFTER};
 
 use crate::{
     ServiceRegistry,
@@ -213,16 +213,22 @@ impl ToPublicError for CansServiceError {
     fn as_public(&self) -> Option<crate::dtos::error::PublicError> {
         match self {
             CansServiceError::OnCooldown(can_type, seconds, can_count) => match can_type {
-                CanType::Can => Some(PublicError::with_owned(
-                    "can-cooldown",
-                    cooldown_errors(CanType::Can, *can_count, *seconds),
-                    StatusCode::TOO_MANY_REQUESTS,
-                )),
-                CanType::Bear => Some(PublicError::with_owned(
-                    "bear-cooldown",
-                    cooldown_errors(CanType::Bear, *can_count, *seconds),
-                    StatusCode::TOO_MANY_REQUESTS,
-                )),
+                CanType::Can => Some(
+                    PublicError::with_owned(
+                        "can-cooldown",
+                        cooldown_errors(CanType::Can, *can_count, *seconds),
+                        StatusCode::TOO_MANY_REQUESTS,
+                    )
+                    .with_header(RETRY_AFTER, seconds.to_string()),
+                ),
+                CanType::Bear => Some(
+                    PublicError::with_owned(
+                        "bear-cooldown",
+                        cooldown_errors(CanType::Bear, *can_count, *seconds),
+                        StatusCode::TOO_MANY_REQUESTS,
+                    )
+                    .with_header(RETRY_AFTER, seconds.to_string()),
+                ),
             },
             CansServiceError::Cooldown(e) => e.as_public(),
             _ => None,
@@ -249,7 +255,11 @@ impl CansService {
         Ok(count)
     }
 
-    pub async fn add(&self, user_id: UserId, can_type: CanType) -> Result<(), CansServiceError> {
+    pub async fn add(
+        &self,
+        user_id: UserId,
+        can_type: CanType,
+    ) -> Result<TimeDelta, CansServiceError> {
         if let Some(expires_at) = CanCooldown.get(&self.cooldown_service).await? {
             let now = Utc::now().naive_utc();
             let expires_secs = expires_at.signed_duration_since(now).num_seconds();
@@ -269,6 +279,6 @@ impl CansService {
 
         CanCooldown.set(&self.cooldown_service).await?;
 
-        Ok(())
+        Ok(CanCooldown.duration())
     }
 }

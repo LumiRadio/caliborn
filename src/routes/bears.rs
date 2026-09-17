@@ -8,7 +8,7 @@ use shared_constants::permissions::PERM_USE_MINIGAMES;
 use crate::{
     AppState, ServiceRegistry,
     dtos::{
-        cans::CanCountDto,
+        cans::{CanCooldownInfo, CanCountDto},
         error::{CalibornResult, ErrorResponse},
     },
     services::{
@@ -47,7 +47,10 @@ pub async fn get_bear_count(
         .await?;
 
     let count = can_service.count().await?;
-    Ok(CanCountDto { count })
+    Ok(CanCountDto {
+        count,
+        cooldown_info: None,
+    })
 }
 
 /// Add a bear to Bear Town.
@@ -65,6 +68,7 @@ pub async fn get_bear_count(
     path = "/bears/add",
     responses(
         (status = 200, description = "Bear was successfully added", body = CanCountDto),
+        (status = 429, description = "There is currently a cooldown active", body = ErrorResponse, example = json!({"message": "<random message>", "error": "bear-cooldown"})),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"})),
         (status = 401, description = "An authorization error occurred (e.g. invalid access token)", body = ErrorResponse, example = json!({"message": "Invalid access token", "error": "Unauthorized"}))
     ),
@@ -85,9 +89,15 @@ pub async fn add_bear(
         .user_has_permission(actor.user_id(), PERM_USE_MINIGAMES)
         .await?;
 
-    can_service.add(actor.user_id(), CanType::Bear).await?;
+    let cooldown = can_service.add(actor.user_id(), CanType::Bear).await?;
+
     let count = can_service.count().await?;
-    Ok(CanCountDto { count })
+    Ok(CanCountDto {
+        count,
+        cooldown_info: Some(CanCooldownInfo {
+            cooldown: cooldown.as_seconds_f32() as u64,
+        }),
+    })
 }
 
 pub fn routes(state: AppState) -> Router<AppState> {

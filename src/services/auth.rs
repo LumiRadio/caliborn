@@ -35,7 +35,7 @@ use crate::{
 
 use super::UserId;
 
-const MAX_SKEW_MS: chrono::Duration = chrono::Duration::minutes(5);
+const MAX_SKEW: chrono::Duration = chrono::Duration::minutes(5);
 
 #[derive(thiserror::Error, Debug)]
 pub enum AuthServiceError {
@@ -405,7 +405,8 @@ impl AuthService {
         signature: &[u8],
         timestamp: &str,
         method: &str,
-        path: &str,
+        path_and_query: &str,
+        user_id: &str,
     ) -> Result<(), AuthServiceError> {
         let sent_at = match DateTime::parse_from_rfc3339(timestamp) {
             Ok(dt) => dt.with_timezone(&Utc),
@@ -413,12 +414,12 @@ impl AuthService {
         };
 
         let now = Utc::now();
-        if (now - sent_at).num_seconds().abs() > MAX_SKEW_MS.num_seconds() {
+        if (now - sent_at).num_seconds().abs() > MAX_SKEW.num_seconds() {
             return Err(AuthServiceError::InvalidHmacTimestamp);
         }
 
         let body_hash = hex::encode(Sha256::digest(&body));
-        let canonical = format!("{}\n{}\n{}\n{}", method, path, body_hash, timestamp);
+        let canonical = format!("{method}\n{path_and_query}\n{user_id}\n{body_hash}\n{timestamp}");
 
         let mut mac = self.hmac_secret.clone();
         mac.update(canonical.as_bytes());
@@ -539,12 +540,12 @@ impl Actor {
     }
 }
 
-pub async fn authenticate(
+pub async fn authenticate_hmac(
     State(state): State<AppState>,
-    mut request: Request,
+    request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    if let (Some(signature), Some(timestamp), Some(user_id)) = (
+    let (Some(signature), Some(timestamp), Some(user_id)) = (
         request
             .headers()
             .get("X-Caliborn-Signature")
@@ -557,33 +558,62 @@ pub async fn authenticate(
             .headers()
             .get("X-Caliborn-User-Id")
             .map(|s| s.to_str().unwrap_or_default().to_string()),
-    ) {
-        let user_id = user_id.parse::<u64>().map_err(|_| {
-            ApiError::Public(PublicError::new(
-                "missing_user_id_header",
-                "The X-Caliborn-User-Id header is not set",
-                StatusCode::UNAUTHORIZED,
-            ))
-        })?;
+    ) else {
+        return Err(ApiError::Public(PublicError::new(
+            "invalid-auth-header",
+            "Invalid authentication header",
+            StatusCode::UNAUTHORIZED,
+        )));
+    };
 
-        let (parts, body) = request.into_parts();
-        let method = parts.method.as_str();
-        let bytes = axum::body::to_bytes(body, usize::MAX)
-            .await
-            .map_err(|_| ApiError::Internal(anyhow::anyhow!("reading body failed")))?;
-        state.service_registry.auth_service().verify_hmac(
-            &bytes,
-            &signature,
-            &timestamp,
-            method,
-            parts.uri.path(),
-        )?;
+    let user_id = user_id.parse::<u64>().map_err(|_| {
+        ApiError::Public(PublicError::new(
+            "missing_user_id_header",
+            "The X-Caliborn-User-Id header is not set",
+            StatusCode::UNAUTHORIZED,
+        ))
+    })?;
 
-        let mut req = Request::from_parts(parts, Body::from(bytes));
-        req.extensions_mut().insert(Actor::Bot {
-            user_id: user_id.into(),
-        });
-        return Ok(next.run(req).await);
+    let (parts, body) = request.into_parts();
+    let full_path = parts
+        .extensions
+        .get::<axum::extract::OriginalUri>()
+        .map(|uri| uri.path_and_query().map(|pq| pq.as_str().to_string()))
+        .unwrap_or_else(|| parts.uri.path_and_query().map(|pq| pq.as_str().to_string()))
+        .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("request URI missing path and query")))?;
+    let method = parts.method.as_str();
+    let bytes = axum::body::to_bytes(body, usize::MAX)
+        .await
+        .map_err(|_| ApiError::Internal(anyhow::anyhow!("reading body failed")))?;
+    state.service_registry.auth_service().verify_hmac(
+        &bytes,
+        &signature,
+        &timestamp,
+        method,
+        &full_path,
+        &user_id.to_string(),
+    )?;
+
+    let mut req = Request::from_parts(parts, Body::from(bytes));
+    req.extensions_mut().insert(Actor::Bot {
+        user_id: user_id.into(),
+    });
+    return Ok(next.run(req).await);
+}
+
+fn has_hmac_headers(request: &Request) -> bool {
+    request.headers().contains_key("X-Caliborn-Signature")
+        && request.headers().contains_key("X-Caliborn-Timestamp")
+        && request.headers().contains_key("X-Caliborn-User-Id")
+}
+
+pub async fn authenticate(
+    State(state): State<AppState>,
+    mut request: Request,
+    next: Next,
+) -> Result<Response, ApiError> {
+    if has_hmac_headers(&request) {
+        return authenticate_hmac(State(state), request, next).await;
     }
 
     if let Some(auth) = request.headers().get(axum::http::header::AUTHORIZATION) {

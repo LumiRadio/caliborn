@@ -69,7 +69,7 @@ impl ToPublicError for EconomyServiceError {
             )),
             EconomyServiceError::InsufficientFunds => Some(PublicError::new(
                 "insufficient-funds",
-                "The user does not have enough funds.",
+                "You don't have enough Boondollars to pay that much!",
                 StatusCode::UNPROCESSABLE_ENTITY,
             )),
             EconomyServiceError::UserService(e) => e.as_public(),

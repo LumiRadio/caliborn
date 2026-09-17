@@ -153,6 +153,25 @@ impl UserService {
         Ok(())
     }
 
+    /// Updates a user's username
+    ///
+    /// This function is supposed to be used by the bot routes.
+    pub async fn set_username(&self, id: UserId, username: String) -> Result<(), UserServiceError> {
+        self.get_user(id).await?;
+
+        self.user_repo
+            .edit(
+                Into::<i64>::into(id),
+                UpdateUserDto {
+                    username: Some(Some(username)),
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+        Ok(())
+    }
+
     /// Aggregate user profile: balances, listening hours + leaderboard
     /// position, can count, linked YouTube channels, role, effective
     /// permissions.

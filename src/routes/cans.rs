@@ -8,7 +8,7 @@ use shared_constants::permissions::PERM_USE_MINIGAMES;
 use crate::{
     AppState, ServiceRegistry,
     dtos::{
-        cans::CanCountDto,
+        cans::{CanCooldownInfo, CanCountDto},
         error::{CalibornResult, ErrorResponse},
     },
     services::{
@@ -38,7 +38,10 @@ use crate::{
 pub async fn get_can_count(State(registry): State<ServiceRegistry>) -> CalibornResult<CanCountDto> {
     let can_service = registry.can_service();
     let count = can_service.count().await?;
-    Ok(CanCountDto { count })
+    Ok(CanCountDto {
+        count,
+        cooldown_info: None,
+    })
 }
 
 /// Add a can to Can Town.
@@ -56,6 +59,7 @@ pub async fn get_can_count(State(registry): State<ServiceRegistry>) -> CalibornR
     path = "/cans/add",
     responses(
         (status = 200, description = "Can was successfully added", body = CanCountDto),
+        (status = 429, description = "There is currently a cooldown active", body = ErrorResponse, example = json!({"message": "<random message>", "error": "can-cooldown"})),
         (status = 500, description = "An internal server error occurred", body = ErrorResponse, example = json!({"message": "Internal server error", "error": "Internal Server Error"})),
         (status = 401, description = "An authorization error occurred (e.g. invalid access token)", body = ErrorResponse, example = json!({"message": "Invalid access token", "error": "Unauthorized"}))
     ),
@@ -76,9 +80,14 @@ pub async fn add_can(
         .user_has_permission(actor.user_id(), PERM_USE_MINIGAMES)
         .await?;
 
-    can_service.add(actor.user_id(), CanType::Can).await?;
+    let cooldown = can_service.add(actor.user_id(), CanType::Can).await?;
     let count = can_service.count().await?;
-    Ok(CanCountDto { count })
+    Ok(CanCountDto {
+        count,
+        cooldown_info: Some(CanCooldownInfo {
+            cooldown: cooldown.as_seconds_f32() as u64,
+        }),
+    })
 }
 
 pub fn routes(state: AppState) -> Router<AppState> {

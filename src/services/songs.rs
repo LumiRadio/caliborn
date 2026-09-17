@@ -41,7 +41,7 @@ pub enum SongServiceError {
     #[error("You have recently requested a song. You can request another song in {0} seconds.")]
     UserCooldown(i64),
 
-    #[error("This song is not available")]
+    #[error("This song is already playing. You can request it again in {0} seconds.")]
     SongAlreadyPlaying(i64),
 
     #[error("Song not found")]

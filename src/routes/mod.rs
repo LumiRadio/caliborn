@@ -4,6 +4,8 @@ pub mod admin;
 pub mod auth;
 /// Bear routes
 pub mod bears;
+/// Bot routes
+pub mod bot;
 /// Can routes
 pub mod cans;
 /// Health routes
